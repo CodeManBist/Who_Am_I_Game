@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "@repo/db";
-import { userSchema } from "@repo/common";
+import { registerSchema, loginSchema } from "@repo/common";
 import { hash, compare } from "bcrypt";
 import { sign } from "jsonwebtoken";
 
@@ -11,7 +11,7 @@ const JWT_SECRET = process.env.JWT_SECRET!;
 // REGISTER
 authRouter.post("/register", async (req, res) => {
   try {
-    const { data, error, success } = userSchema.safeParse(req.body);
+    const { data, error, success } = registerSchema.safeParse(req.body);
 
     if (!success) {
       return res.status(400).json({
@@ -69,7 +69,7 @@ authRouter.post("/register", async (req, res) => {
 // LOGIN
 authRouter.post("/login", async (req, res) => {
   try {
-    const { data, error, success } = userSchema.safeParse(req.body);
+    const { data, error, success } = loginSchema.safeParse(req.body);
 
     if (!success) {
       return res.status(400).json({

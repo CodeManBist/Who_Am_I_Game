@@ -1,0 +1,109 @@
+// This is your Prisma schema file.
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum GameStatus {
+  WAITING
+  UPLOADING
+  COUNTDOWN
+  PLAYING
+  FINISHED
+}
+
+enum MessageType {
+  QUESTION
+  ANSWER
+  GUESS
+}
+
+model User {
+  id           String        @id @default(cuid())
+  username     String        @unique
+  email        String        @unique
+  passwordHash String
+  avatarUrl    String?
+
+  gamePlayers  GamePlayer[]
+  messages     GameMessage[]
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([email])
+}
+
+model Game {
+  id              String        @id @default(cuid())
+  roomCode        String        @unique
+
+  status          GameStatus    @default(WAITING)
+
+  currentTurn     Int?
+  turnDeadline    DateTime?
+
+  winnerPlayerId  String?
+
+  startedAt       DateTime?
+  endedAt         DateTime?
+  createdAt       DateTime      @default(now())
+
+  players         GamePlayer[]
+  messages        GameMessage[]
+
+  @@index([status])
+}
+
+model GamePlayer {
+  id                String   @id @default(cuid())
+
+  gameId            String
+  userId            String
+
+  position          Int
+
+  // Character selected/uploaded by this player
+  // for the opponent to guess.
+  characterName     String?
+  characterImageUrl String?
+  characterFacts    Json?
+  aiConfidence      Float?
+
+  game              Game     @relation( fields: [gameId], references: [id], onDelete: Cascade )
+
+  user              User     @relation( fields: [userId], references: [id], onDelete: Cascade )
+
+  createdAt         DateTime @default(now())
+
+  @@unique([gameId, userId])
+  @@unique([gameId, position])
+
+  @@index([gameId])
+  @@index([userId])
+}
+
+model GameMessage {
+  id        String      @id @default(cuid())
+
+  gameId    String
+  senderId  String
+
+  type      MessageType
+  message   String
+
+  game      Game       @relation( fields: [gameId],references: [id],onDelete: Cascade )
+
+  sender    User       @relation( fields: [senderId], references: [id], onDelete: Cascade )
+
+  createdAt DateTime @default(now())
+
+  @@index([gameId, createdAt])
+  @@index([senderId])
+}

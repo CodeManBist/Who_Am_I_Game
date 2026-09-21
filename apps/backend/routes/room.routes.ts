@@ -2,7 +2,8 @@ import { type Request, type Response,Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { prisma } from '@repo/db';
 import multer from 'multer';
-import crypto from 'crypto';
+import cloudinary from '../config/cloudinary';
+import { identifyCharacter } from '../services/gemini.service';
 
 const roomRouter = Router();
 
@@ -12,6 +13,36 @@ const upload = multer({
       fileSize: 5 * 1024 * 1024,
     },
   });
+
+  const uploadToCloudinary = (
+    buffer: Buffer,
+    originalName: string
+  ): Promise<{ secure_url: string }> => {
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'who-am-i/characters',
+          resource_type: 'image',
+          public_id: `${Date.now()}-${originalName
+            .replace(/\.[^/.]+$/, '')
+            .replace(/[^a-zA-Z0-9-_]/g, '-')}`,
+        },
+        (error, result) => {
+          if (error || !result) {
+            return reject(
+              error || new Error('Cloudinary upload failed')
+            );
+          }
+  
+          resolve({
+            secure_url: result.secure_url,
+          });
+        }
+      );
+  
+      uploadStream.end(buffer);
+    });
+  };
 
 roomRouter.post('/', authenticateToken, async (req: Request, res: Response) => {
     try {
@@ -349,15 +380,24 @@ roomRouter.post(
         // Cloudinary upload comes here.
         // AI identification comes here.
   
-        // Temporary values until Cloudinary + AI services
+        // Temporary values until  AI services
         // are connected.
-        const characterImageUrl = 'TEMP_IMAGE_URL';
-  
-        const characterName = 'TEMP_CHARACTER';
-  
-        const characterFacts = {};
-  
-        const aiConfidence = null;
+        const cloudinaryResult = await uploadToCloudinary(
+          req.file.buffer,
+          req.file.originalname
+        );
+        
+        const characterImageUrl = cloudinaryResult.secure_url;
+
+        const aiResult = await identifyCharacter(
+          req.file.buffer,
+          req.file.mimetype
+        );
+        
+        // AI will be added next.
+        const characterName = aiResult.characterName;
+        const characterFacts = aiResult.characterFacts;
+        const aiConfidence = aiResult.confidence;
   
         const updatedPlayer =
           await prisma.gamePlayer.update({

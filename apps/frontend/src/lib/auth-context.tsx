@@ -1,128 +1,344 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 
-export type AuthUser = {
+const API_URL = "http://localhost:3001/api/v1";
+
+type AuthUser = {
+  id: string;
   username: string;
   email: string;
+  avatarUrl?: string | null;
+};
+
+type AuthResult = {
+  ok: boolean;
+  error?: string;
 };
 
 type AuthContextValue = {
   user: AuthUser | null;
+  token: string | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => { ok: boolean; error?: string };
-  register: (username: string, email: string, password: string) => { ok: boolean; error?: string };
+  isLoading: boolean;
+
+  login: (
+    email: string,
+    password: string
+  ) => Promise<AuthResult>;
+
+  register: (
+    username: string,
+    email: string,
+    password: string
+  ) => Promise<AuthResult>;
+
   logout: () => void;
 };
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+/* --------------------------------------------------
+   Context
+-------------------------------------------------- */
 
-const STORAGE_KEY = 'whoami-auth';
-const USERS_KEY = 'whoami-users';
+const AuthContext = createContext<AuthContextValue | undefined>(
+  undefined
+);
 
-type StoredUser = AuthUser & { password: string };
+/* --------------------------------------------------
+   Provider
+-------------------------------------------------- */
 
-function loadUsers(): StoredUser[] {
-  try {
-    const stored = localStorage.getItem(USERS_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch {
-    // ignore
-  }
-  // Seed demo users
-  const demoUsers: StoredUser[] = [
-    { username: 'Sagar', email: 'sagar@demo.com', password: 'demo123' },
-    { username: 'Rahul', email: 'rahul@demo.com', password: 'demo123' },
-  ];
-  localStorage.setItem(USERS_KEY, JSON.stringify(demoUsers));
-  return demoUsers;
-}
+export function AuthProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-function saveUsers(users: StoredUser[]) {
-  try {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  } catch {
-    // ignore
-  }
-}
+  /* ------------------------------------------------
+     Restore authentication from localStorage
+  ------------------------------------------------ */
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
+  useEffect(() => {
+    const storedToken = localStorage.getItem("whoami-token");
+    const storedUser = localStorage.getItem("whoami-user");
+
+    if (storedToken) {
+      setToken(storedToken);
     }
-  });
 
-  const login = useCallback((email: string, password: string): { ok: boolean; error?: string } => {
-    const users = loadUsers();
-    const found = users.find(
-      (u) => u.email.toLowerCase() === email.trim().toLowerCase()
-    );
-    if (!found) return { ok: false, error: 'No account found with that email.' };
-    if (found.password !== password) return { ok: false, error: 'Wrong password.' };
-    const loggedIn: AuthUser = { username: found.username, email: found.email };
-    setUser(loggedIn);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(loggedIn));
-    } catch {
-      // ignore
-    }
-    return { ok: true };
-  }, []);
-
-  const register = useCallback(
-    (username: string, email: string, password: string): { ok: boolean; error?: string } => {
-      const users = loadUsers();
-      const exists = users.some(
-        (u) => u.email.toLowerCase() === email.trim().toLowerCase()
-      );
-      if (exists) return { ok: false, error: 'An account with that email already exists.' };
-      const newUser: StoredUser = {
-        username: username.trim() || 'Player',
-        email: email.trim(),
-        password,
-      };
-      const updated = [...users, newUser];
-      saveUsers(updated);
-      const loggedIn: AuthUser = { username: newUser.username, email: newUser.email };
-      setUser(loggedIn);
+    if (storedUser) {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(loggedIn));
+        const parsedUser: AuthUser = JSON.parse(storedUser);
+        setUser(parsedUser);
       } catch {
-        // ignore
+        localStorage.removeItem("whoami-user");
       }
-      return { ok: true };
-    },
-    []
-  );
-
-  const logout = useCallback(() => {
-    setUser(null);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // ignore
     }
+
+    setIsLoading(false);
   }, []);
+
+  /* ------------------------------------------------
+     Save authentication
+  ------------------------------------------------ */
+
+  const saveAuth = (
+    newToken: string,
+    newUser: AuthUser
+  ) => {
+    localStorage.setItem("whoami-token", newToken);
+    localStorage.setItem(
+      "whoami-user",
+      JSON.stringify(newUser)
+    );
+
+    setToken(newToken);
+    setUser(newUser);
+  };
+
+  /* ------------------------------------------------
+     Login
+  ------------------------------------------------ */
+
+  const login = async (
+    email: string,
+    password: string
+  ): Promise<AuthResult> => {
+    try {
+      setIsLoading(true);
+
+      const response = await fetch(
+        `${API_URL}/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            passwordHash: password,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          ok: false,
+          error:
+            data?.error ||
+            data?.message ||
+            "Login failed",
+        };
+      }
+
+      if (!data.token) {
+        return {
+          ok: false,
+          error: "Login succeeded but no token was returned",
+        };
+      }
+
+      /*
+       * Get the authenticated user's actual profile
+       * using the JWT returned by login.
+       */
+
+      const meResponse = await fetch(
+        `${API_URL}/auth/me`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${data.token}`,
+          },
+        }
+      );
+
+      const meData = await meResponse.json();
+
+      if (!meResponse.ok) {
+        return {
+          ok: false,
+          error:
+            meData?.error ||
+            meData?.message ||
+            "Could not fetch user profile",
+        };
+      }
+
+      const authenticatedUser: AuthUser =
+        meData.user;
+
+      saveAuth(data.token, authenticatedUser);
+
+      return {
+        ok: true,
+      };
+    } catch (error) {
+      console.error("Login error:", error);
+
+      return {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to connect to server",
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /* ------------------------------------------------
+     Register
+  ------------------------------------------------ */
+
+  const register = async (
+    username: string,
+    email: string,
+    password: string
+  ): Promise<AuthResult> => {
+    try {
+      setIsLoading(true);
+
+      const response = await fetch(
+        `${API_URL}/auth/register`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username,
+            email,
+            passwordHash: password,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          ok: false,
+          error:
+            data?.error ||
+            data?.message ||
+            "Registration failed",
+        };
+      }
+
+      if (!data.token) {
+        return {
+          ok: false,
+          error:
+            "Registration succeeded but no token was returned",
+        };
+      }
+
+      /*
+       * Registration also returns a JWT.
+       * Fetch the newly created user's profile.
+       */
+
+      const meResponse = await fetch(
+        `${API_URL}/auth/me`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${data.token}`,
+          },
+        }
+      );
+
+      const meData = await meResponse.json();
+
+      if (!meResponse.ok) {
+        return {
+          ok: false,
+          error:
+            meData?.error ||
+            meData?.message ||
+            "Could not fetch user profile",
+        };
+      }
+
+      const authenticatedUser: AuthUser =
+        meData.user;
+
+      saveAuth(data.token, authenticatedUser);
+
+      return {
+        ok: true,
+      };
+    } catch (error) {
+      console.error("Registration error:", error);
+
+      return {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to connect to server",
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /* ------------------------------------------------
+     Logout
+  ------------------------------------------------ */
+
+  const logout = () => {
+    localStorage.removeItem("whoami-token");
+    localStorage.removeItem("whoami-user");
+
+    setToken(null);
+    setUser(null);
+  };
+
+  /* ------------------------------------------------
+     Context value
+  ------------------------------------------------ */
+
+  const value: AuthContextValue = {
+    user,
+    token,
+    isAuthenticated: !!user && !!token,
+    isLoading,
+    login,
+    register,
+    logout,
+  };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        login,
-        register,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
+/* --------------------------------------------------
+   Hook
+-------------------------------------------------- */
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error(
+      "useAuth must be used inside AuthProvider"
+    );
+  }
+
+  return context;
 }

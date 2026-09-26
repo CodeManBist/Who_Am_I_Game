@@ -411,6 +411,18 @@ roomRouter.post(
               aiConfidence,
             },
           });
+
+          //Notify Websocket server
+          await fetch("http://localhost:3001/internal/character-ready", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              roomCode,
+              userId,
+            }),
+          });
   
         if (game.status === 'WAITING') {
           await prisma.game.update({

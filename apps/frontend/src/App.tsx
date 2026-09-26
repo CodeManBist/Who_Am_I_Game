@@ -1,38 +1,33 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { APITester } from "./APITester";
-import "./index.css";
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { GameProvider } from '@/lib/game-context';
+import { LandingPage } from '@/pages/LandingPage';
+import { HowToPlayPage } from '@/pages/HowToPlayPage';
+import { CreateRoomPage } from '@/pages/CreateRoomPage';
+import { JoinRoomPage } from '@/pages/JoinRoomPage';
+import { WaitingRoomPage } from '@/pages/WaitingRoomPage';
+import { CharacterSelectPage } from '@/pages/CharacterSelectPage';
+import { CountdownPage } from '@/pages/CountdownPage';
+import { GamePage } from '@/pages/GamePage';
+import { GameResultPage } from '@/pages/GameResultPage';
+import './App.css';
 
-import logo from "./logo.svg";
-import reactLogo from "./react.svg";
-
-export function App() {
+function App() {
   return (
-    <div className="container mx-auto p-8 text-center relative z-10">
-      <div className="flex justify-center items-center gap-8 mb-8">
-        <img
-          src={logo}
-          alt="Bun Logo"
-          className="h-36 p-6 transition-all duration-300 hover:drop-shadow-[0_0_2em_#646cffaa] scale-120"
-        />
-        <img
-          src={reactLogo}
-          alt="React Logo"
-          className="h-36 p-6 transition-all duration-300 hover:drop-shadow-[0_0_2em_#61dafbaa] [animation:spin_20s_linear_infinite]"
-        />
-      </div>
-      <Card>
-        <CardHeader className="gap-4">
-          <CardTitle className="text-3xl font-bold">Bun + React</CardTitle>
-          <CardDescription>
-            Edit <code className="rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono">src/App.tsx</code> and save to
-            test HMR
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <APITester />
-        </CardContent>
-      </Card>
-    </div>
+    <GameProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/how-to-play" element={<HowToPlayPage />} />
+          <Route path="/create" element={<CreateRoomPage />} />
+          <Route path="/join" element={<JoinRoomPage />} />
+          <Route path="/room/:roomCode" element={<WaitingRoomPage />} />
+          <Route path="/room/:roomCode/select" element={<CharacterSelectPage />} />
+          <Route path="/room/:roomCode/countdown" element={<CountdownPage />} />
+          <Route path="/game/:roomCode" element={<GamePage />} />
+          <Route path="/game/:roomCode/result" element={<GameResultPage />} />
+        </Routes>
+      </BrowserRouter>
+    </GameProvider>
   );
 }
 

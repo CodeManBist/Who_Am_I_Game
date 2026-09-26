@@ -4,10 +4,12 @@ import { ArrowRight, ArrowLeft, UserCircle, Users } from 'lucide-react';
 import { LogoMark } from '@/components/game/BrandLogo';
 import { RoomCode } from '@/components/game/RoomCode';
 import { ConnectionStatus } from '@/components/game/ConnectionStatus';
+import { useAuth } from '@/lib/auth-context';
 
 export function CreateRoomPage() {
   const navigate = useNavigate();
-  const [name, setName] = useState('');
+  const auth = useAuth();
+  const [name, setName] = useState(auth.user?.username ?? '');
   const [created, setCreated] = useState(false);
 
   const create = () => {

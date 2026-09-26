@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Mic, Video } from 'lucide-react';
+import { ArrowRight, Mic, Video, LogOut } from 'lucide-react';
 import { LogoMark } from '@/components/game/BrandLogo';
 import { LiveBadge } from '@/components/game/LiveBadge';
 import { MysteryPhoto } from '@/components/game/MysteryPhoto';
+import { useAuth } from '@/lib/auth-context';
 
 const PLAYER_A =
   'https://images.pexels.com/photos/7958715/pexels-photo-7958715.jpeg?auto=compress&cs=tinysrgb&w=600&h=800&fit=crop';
@@ -69,6 +70,7 @@ function VideoFrame({
 }
 
 export function LandingPage() {
+  const auth = useAuth();
   return (
     <div className="min-h-screen bg-[#11110F] text-[#F5F1E8]">
       {/* ── HEADER ── */}
@@ -82,16 +84,41 @@ export function LandingPage() {
             <Link to="/how-to-play" className="hidden text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8] sm:inline">
               How to play
             </Link>
-            <Link to="/join" className="text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8]">
-              Join a room
-            </Link>
-            <Link
-              to="/create"
-              className="group inline-flex items-center gap-1.5 rounded-md bg-[#FF5A36] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-all hover:bg-[#ff6b4a]"
-            >
-              Create room
-              <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-            </Link>
+            {auth.isAuthenticated ? (
+              <>
+                <Link to="/join" className="text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8]">
+                  Join a room
+                </Link>
+                <Link
+                  to="/create"
+                  className="group inline-flex items-center gap-1.5 rounded-md bg-[#FF5A36] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-all hover:bg-[#ff6b4a]"
+                >
+                  Create room
+                  <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+                <button
+                  onClick={auth.logout}
+                  className="flex items-center gap-1.5 text-[13px] text-[#5A564F] transition-colors hover:text-[#F5F1E8]"
+                  aria-label="Log out"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{auth.user?.username}</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/auth?redirect=/join" className="text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8]">
+                  Join a room
+                </Link>
+                <Link
+                  to="/auth?redirect=/create"
+                  className="group inline-flex items-center gap-1.5 rounded-md bg-[#FF5A36] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-all hover:bg-[#ff6b4a]"
+                >
+                  Create room
+                  <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       </header>
@@ -117,14 +144,14 @@ export function LandingPage() {
               </p>
               <div className="mt-7 flex items-center gap-5">
                 <Link
-                  to="/create"
+                  to={auth.isAuthenticated ? "/create" : "/auth?redirect=/create"}
                   className="group inline-flex items-center gap-2 rounded-md bg-[#FF5A36] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#ff6b4a]"
                 >
                   Create a room
                   <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                 </Link>
                 <Link
-                  to="/join"
+                  to={auth.isAuthenticated ? "/join" : "/auth?redirect=/join"}
                   className="text-sm font-medium text-[#9A958B] underline underline-offset-[6px] transition-colors hover:text-[#F5F1E8]"
                 >
                   Join a room
@@ -282,7 +309,7 @@ export function LandingPage() {
             <span className="font-display text-sm font-semibold tracking-tight">WHO AM I?</span>
           </div>
           <p className="text-[13px] text-[#5A564F]">A game for two friends.</p>
-          <Link to="/create" className="group inline-flex items-center gap-1.5 text-[13px] font-medium text-[#F5F1E8] transition-colors">
+          <Link to={auth.isAuthenticated ? "/create" : "/auth?redirect=/create"} className="group inline-flex items-center gap-1.5 text-[13px] font-medium text-[#F5F1E8] transition-colors">
             Create a room
             <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
           </Link>

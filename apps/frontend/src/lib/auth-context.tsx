@@ -1,23 +1,48 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 
 export type AuthUser = {
-  phone: string;
-  name: string;
+  username: string;
+  email: string;
 };
 
 type AuthContextValue = {
   user: AuthUser | null;
   isAuthenticated: boolean;
-  sendOtp: (phone: string) => void;
-  verifyOtp: (phone: string, code: string, name: string) => boolean;
+  login: (email: string, password: string) => { ok: boolean; error?: string };
+  register: (username: string, email: string, password: string) => { ok: boolean; error?: string };
   logout: () => void;
-  pendingPhone: string | null;
-  generatedOtp: string | null;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const STORAGE_KEY = 'whoami-auth';
+const USERS_KEY = 'whoami-users';
+
+type StoredUser = AuthUser & { password: string };
+
+function loadUsers(): StoredUser[] {
+  try {
+    const stored = localStorage.getItem(USERS_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {
+    // ignore
+  }
+  // Seed demo users
+  const demoUsers: StoredUser[] = [
+    { username: 'Sagar', email: 'sagar@demo.com', password: 'demo123' },
+    { username: 'Rahul', email: 'rahul@demo.com', password: 'demo123' },
+  ];
+  localStorage.setItem(USERS_KEY, JSON.stringify(demoUsers));
+  return demoUsers;
+}
+
+function saveUsers(users: StoredUser[]) {
+  try {
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  } catch {
+    // ignore
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
@@ -28,36 +53,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
   });
-  const [pendingPhone, setPendingPhone] = useState<string | null>(null);
-  const [generatedOtp, setGeneratedOtp] = useState<string | null>(null);
 
-  const sendOtp = useCallback((phone: string) => {
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    setPendingPhone(phone);
-    setGeneratedOtp(code);
+  const login = useCallback((email: string, password: string): { ok: boolean; error?: string } => {
+    const users = loadUsers();
+    const found = users.find(
+      (u) => u.email.toLowerCase() === email.trim().toLowerCase()
+    );
+    if (!found) return { ok: false, error: 'No account found with that email.' };
+    if (found.password !== password) return { ok: false, error: 'Wrong password.' };
+    const loggedIn: AuthUser = { username: found.username, email: found.email };
+    setUser(loggedIn);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(loggedIn));
+    } catch {
+      // ignore
+    }
+    return { ok: true };
   }, []);
 
-  const verifyOtp = useCallback(
-    (phone: string, code: string, name: string) => {
-      if (code !== generatedOtp) return false;
-      const newUser = { phone, name: name || 'Player' };
-      setUser(newUser);
+  const register = useCallback(
+    (username: string, email: string, password: string): { ok: boolean; error?: string } => {
+      const users = loadUsers();
+      const exists = users.some(
+        (u) => u.email.toLowerCase() === email.trim().toLowerCase()
+      );
+      if (exists) return { ok: false, error: 'An account with that email already exists.' };
+      const newUser: StoredUser = {
+        username: username.trim() || 'Player',
+        email: email.trim(),
+        password,
+      };
+      const updated = [...users, newUser];
+      saveUsers(updated);
+      const loggedIn: AuthUser = { username: newUser.username, email: newUser.email };
+      setUser(loggedIn);
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(loggedIn));
       } catch {
-        // ignore storage errors
+        // ignore
       }
-      setPendingPhone(null);
-      setGeneratedOtp(null);
-      return true;
+      return { ok: true };
     },
-    [generatedOtp]
+    []
   );
 
   const logout = useCallback(() => {
     setUser(null);
-    setPendingPhone(null);
-    setGeneratedOtp(null);
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -70,11 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isAuthenticated: !!user,
-        sendOtp,
-        verifyOtp,
+        login,
+        register,
         logout,
-        pendingPhone,
-        generatedOtp,
       }}
     >
       {children}

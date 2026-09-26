@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, ArrowLeft } from 'lucide-react';
 import { LogoMark } from '@/components/game/BrandLogo';
+import { useAuth } from '@/lib/auth-context';
 
 const PLAYER_A =
   'https://images.pexels.com/photos/7958715/pexels-photo-7958715.jpeg?auto=compress&cs=tinysrgb&w=200&h=260&fit=crop';
@@ -10,8 +11,9 @@ const PLAYER_B =
 
 export function JoinRoomPage() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const [code, setCode] = useState('');
-  const [name, setName] = useState('');
+  const [name, setName] = useState(auth.user?.username ?? '');
   const [error, setError] = useState('');
 
   const join = () => {

@@ -25,12 +25,12 @@
   }
 
   body {
-    margin: 0;
     background-color: var(--bg);
     color: var(--text);
     font-family: "Inter", system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    margin: 0;
   }
 }
 
@@ -84,9 +84,9 @@
   }
 }
 
-/* ─────────────────────────────────────
+/* ─────────────────────────────────────────
    Animations
-───────────────────────────────────── */
+───────────────────────────────────────── */
 
 @keyframes float {
   0%,
@@ -257,6 +257,10 @@
   }
 }
 
+/* ─────────────────────────────────────────
+   Animation Utilities
+───────────────────────────────────────── */
+
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }
@@ -297,6 +301,10 @@
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+/* ─────────────────────────────────────────
+   Effects
+───────────────────────────────────────── */
+
 .shimmer-bg {
   background: linear-gradient(
     90deg,
@@ -325,9 +333,9 @@
   animation: scan-line 1.5s ease-in-out infinite;
 }
 
-/* ─────────────────────────────────────
+/* ─────────────────────────────────────────
    Scrollbar
-───────────────────────────────────── */
+───────────────────────────────────────── */
 
 ::-webkit-scrollbar {
   width: 5px;
@@ -347,9 +355,9 @@
   background: var(--text-dim);
 }
 
-/* ─────────────────────────────────────
+/* ─────────────────────────────────────────
    Focus
-───────────────────────────────────── */
+───────────────────────────────────────── */
 
 input:focus,
 textarea:focus,

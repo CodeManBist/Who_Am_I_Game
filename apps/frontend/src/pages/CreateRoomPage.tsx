@@ -1,20 +1,125 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowLeft, UserCircle, Users } from 'lucide-react';
+import {
+  ArrowRight,
+  ArrowLeft,
+  UserCircle,
+  Users,
+  Loader2,
+} from 'lucide-react';
+
 import { LogoMark } from '@/components/game/BrandLogo';
 import { RoomCode } from '@/components/game/RoomCode';
 import { ConnectionStatus } from '@/components/game/ConnectionStatus';
 import { useAuth } from '@/lib/auth-context';
 
+const API_URL = 'http://localhost:3001/api/v1';
+
 export function CreateRoomPage() {
   const navigate = useNavigate();
   const auth = useAuth();
+
   const [name, setName] = useState(auth.user?.username ?? '');
   const [created, setCreated] = useState(false);
+  const [roomCode, setRoomCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const create = () => {
+  const create = async () => {
     if (!name.trim()) return;
-    setCreated(true);
+
+    if (!auth.token) {
+      navigate('/auth?redirect=/create');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+
+      const response = await fetch(`${API_URL}/rooms`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      console.log('Create room response:', data);
+
+      if (!response.ok) {
+        setError(
+          data?.error ||
+            data?.message ||
+            'Failed to create room.'
+        );
+        return;
+      }
+
+      // Backend response:
+      // {
+      //   message: "Room created successfully",
+      //   game: {
+      //     id: "...",
+      //     roomCode: "E63T47",
+      //     status: "WAITING"
+      //   }
+      // }
+
+      const newRoomCode =
+        data?.game?.roomCode ||
+        data?.roomCode ||
+        data?.room?.roomCode;
+
+      console.log('Extracted room code:', newRoomCode);
+
+      if (!newRoomCode) {
+        console.error('Create room response:', data);
+
+        setError(
+          'Room was created, but no room code was returned.'
+        );
+        return;
+      }
+
+      setRoomCode(newRoomCode);
+      setCreated(true);
+    } catch (error) {
+      console.error('Create room error:', error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to connect to the server.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyRoomCode = async () => {
+    if (!roomCode) return;
+
+    try {
+      await navigator.clipboard.writeText(roomCode);
+    } catch (error) {
+      console.error('Failed to copy room code:', error);
+    }
+  };
+
+  const copyInviteLink = async () => {
+    if (!roomCode) return;
+
+    const inviteLink =
+      `${window.location.origin}/room/${roomCode}`;
+
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+    } catch (error) {
+      console.error('Failed to copy invite link:', error);
+    }
   };
 
   if (created) {
@@ -24,8 +129,12 @@ export function CreateRoomPage() {
           <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 sm:px-10">
             <div className="flex items-center gap-2.5">
               <LogoMark />
-              <span className="font-display text-sm font-semibold tracking-tight">WHO AM I?</span>
+
+              <span className="font-display text-sm font-semibold tracking-tight">
+                WHO AM I?
+              </span>
             </div>
+
             <button
               onClick={() => navigate('/')}
               className="text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8]"
@@ -40,19 +149,28 @@ export function CreateRoomPage() {
             <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#FF5A36]">
               Your room
             </p>
+
             <div className="mb-6 flex justify-center">
-              <RoomCode code="K7Q-29P" large />
+              <RoomCode
+                code={roomCode}
+                large
+              />
             </div>
+
             <p className="mb-8 text-sm text-[#9A958B]">
               Share this with one friend.
             </p>
 
             <div className="mb-8 flex justify-center gap-3">
-              <button className="inline-flex items-center gap-2 rounded-md border border-[#2A2A25] bg-[#181815] px-4 py-2.5 text-sm font-medium text-[#F5F1E8] transition-all hover:border-[#3a3a32]">
+              <button
+                onClick={copyRoomCode}
+                className="inline-flex items-center gap-2 rounded-md border border-[#2A2A25] bg-[#181815] px-4 py-2.5 text-sm font-medium text-[#F5F1E8] transition-all hover:border-[#3a3a32]"
+              >
                 Copy room code
               </button>
+
               <button
-                onClick={() => navigate('/room/K7Q-29P')}
+                onClick={copyInviteLink}
                 className="inline-flex items-center gap-2 rounded-md border border-[#2A2A25] bg-[#181815] px-4 py-2.5 text-sm font-medium text-[#F5F1E8] transition-all hover:border-[#3a3a32]"
               >
                 Copy invite link
@@ -60,15 +178,23 @@ export function CreateRoomPage() {
             </div>
 
             <div className="flex items-center justify-center gap-2 rounded-lg border border-[#1F1F1A] bg-[#181815] px-4 py-3">
-              <ConnectionStatus connected={false} />
-              <span className="text-sm text-[#9A958B]">Waiting for player 2...</span>
+              <ConnectionStatus
+                connected={auth.isAuthenticated}
+              />
+
+              <span className="text-sm text-[#9A958B]">
+                Waiting for player 2...
+              </span>
             </div>
 
             <button
-              onClick={() => navigate('/room/K7Q-29P')}
+              onClick={() =>
+                navigate(`/room/${roomCode}`)
+              }
               className="group mt-8 inline-flex items-center gap-2 rounded-md bg-[#FF5A36] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#ff6b4a]"
             >
               Enter room
+
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
             </button>
           </div>
@@ -81,10 +207,17 @@ export function CreateRoomPage() {
     <div className="flex min-h-screen flex-col bg-[#11110F] text-[#F5F1E8]">
       <header className="border-b border-[#1F1F1A]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 sm:px-10">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
+          >
             <LogoMark />
-            <span className="font-display text-sm font-semibold tracking-tight">WHO AM I?</span>
+
+            <span className="font-display text-sm font-semibold tracking-tight">
+              WHO AM I?
+            </span>
           </button>
+
           <button
             onClick={() => navigate(-1)}
             className="inline-flex items-center gap-1.5 text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8]"
@@ -100,6 +233,7 @@ export function CreateRoomPage() {
           <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Let's get a room ready.
           </h1>
+
           <p className="mt-2 text-sm text-[#9A958B]">
             Set up a private game and invite a friend.
           </p>
@@ -109,11 +243,16 @@ export function CreateRoomPage() {
               <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.15em] text-[#5A564F]">
                 Your name
               </label>
+
               <input
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setError('');
+                }}
                 placeholder="What should your friend call you?"
-                className="h-12 w-full rounded-md border border-[#2A2A25] bg-[#181815] px-4 text-base text-[#F5F1E8] placeholder:text-[#5A564F] transition-colors focus:border-[#FF5A36]/50"
+                disabled={loading}
+                className="h-12 w-full rounded-md border border-[#2A2A25] bg-[#181815] px-4 text-base text-[#F5F1E8] placeholder:text-[#5A564F] transition-colors focus:border-[#FF5A36]/50 disabled:cursor-not-allowed disabled:opacity-50"
                 autoFocus
               />
             </div>
@@ -122,25 +261,46 @@ export function CreateRoomPage() {
               <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.15em] text-[#5A564F]">
                 Avatar (optional)
               </label>
+
               <div className="flex items-center gap-3 rounded-md border border-dashed border-[#2A2A25] p-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#211F1B]">
                   <UserCircle className="h-6 w-6 text-[#5A564F]" />
                 </div>
-                <p className="text-sm text-[#5A564F]">Click to upload an avatar</p>
+
+                <p className="text-sm text-[#5A564F]">
+                  Click to upload an avatar
+                </p>
               </div>
             </div>
 
+            {error && (
+              <p className="text-sm text-[#E56B6F]">
+                {error}
+              </p>
+            )}
+
             <button
-              onClick={create}
-              disabled={!name.trim()}
-              className="group flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#FF5A36] text-base font-semibold text-white transition-all hover:bg-[#ff6b4a] disabled:opacity-30 disabled:pointer-events-none"
+              onClick={() => void create()}
+              disabled={!name.trim() || loading}
+              className="group flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#FF5A36] text-base font-semibold text-white transition-all hover:bg-[#ff6b4a] disabled:pointer-events-none disabled:opacity-30"
             >
-              Create room
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating room...
+                </>
+              ) : (
+                <>
+                  Create room
+
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </>
+              )}
             </button>
 
             <div className="flex items-center justify-center gap-2 text-sm text-[#5A564F]">
               <Users className="h-4 w-4" />
+
               Only you and one friend can join this room.
             </div>
           </div>

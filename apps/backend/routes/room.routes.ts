@@ -84,8 +84,13 @@ roomRouter.post('/', authenticateToken, async (req: Request, res: Response) => {
         },
     });
     } catch (error) {
-        res.status(500).json({ error: 'Error creating room key' });
-    }
+    console.error("CREATE ROOM ERROR:", error);
+
+    return res.status(500).json({
+        error: "Error creating room",
+        details: error instanceof Error ? error.message : String(error),
+    });
+  }
 });
 
 roomRouter.get('/:roomCode', authenticateToken, async(req: Request<{ roomCode: string }>, res: Response) => {

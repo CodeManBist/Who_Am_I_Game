@@ -1,18 +1,31 @@
 import { useEffect, useState } from 'react';
 
-export function Countdown({ onComplete }: { onComplete: () => void }) {
-  const [count, setCount] = useState(3);
+type CountdownProps = {
+  seconds: number;
+  onComplete: () => void;
+};
+
+export function Countdown({
+  seconds,
+  onComplete,
+}: CountdownProps) {
   const [showTitle, setShowTitle] = useState(false);
 
   useEffect(() => {
-    if (count === 0) {
-      setShowTitle(true);
-      const t = setTimeout(onComplete, 1500);
-      return () => clearTimeout(t);
+    if (seconds !== 0) {
+      return;
     }
-    const t = setTimeout(() => setCount((c) => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [count, onComplete]);
+
+    setShowTitle(true);
+
+    const timer = window.setTimeout(() => {
+      onComplete();
+    }, 1500);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [seconds, onComplete]);
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#11110F]">
@@ -21,13 +34,18 @@ export function Countdown({ onComplete }: { onComplete: () => void }) {
       {showTitle ? (
         <div className="relative animate-scale-in text-center">
           <h1 className="font-display text-5xl font-black tracking-tight sm:text-7xl">
-            <span className="text-[#FF5A36]">WHO AM I?</span>
+            <span className="text-[#FF5A36]">
+              WHO AM I?
+            </span>
           </h1>
         </div>
       ) : (
-        <div key={count} className="relative animate-count-pop text-center">
+        <div
+          key={seconds}
+          className="relative animate-count-pop text-center"
+        >
           <span className="font-display text-[10rem] font-black leading-none text-[#F5F1E8] sm:text-[14rem]">
-            {count > 0 ? count : 'GO!'}
+            {seconds > 0 ? seconds : 'GO!'}
           </span>
         </div>
       )}

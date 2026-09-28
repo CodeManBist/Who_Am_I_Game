@@ -88,6 +88,91 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (
+    req.method === "POST" &&
+    req.url === "/internal/character-confirmed"
+  ) {
+    try {
+      const body = await new Promise<string>((resolve, reject) => {
+        let data = "";
+
+        req.on("data", (chunk) => {
+          data += chunk;
+        });
+
+        req.on("end", () => {
+          resolve(data);
+        });
+
+        req.on("error", reject);
+      });
+
+      const { roomCode, userId } = JSON.parse(body);
+
+      console.log("Character confirmed:", {
+        roomCode,
+        userId,
+      });
+
+      const room = rooms.get(roomCode);
+
+      if (!room) {
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+        });
+
+        res.end(
+          JSON.stringify({
+            success: true,
+            message: "No connected players in room",
+          })
+        );
+
+        return;
+      }
+
+      // Tell all connected players in this room
+      for (const client of room) {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(
+            JSON.stringify({
+              type: "character_confirmed",
+              userId,
+            })
+          );
+        }
+      }
+
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+      });
+
+      res.end(
+        JSON.stringify({
+          success: true,
+        })
+      );
+    } catch (error) {
+      console.error(
+        "Character-confirmed event failed:",
+        error
+      );
+
+      res.writeHead(400, {
+        "Content-Type": "application/json",
+      });
+
+      res.end(
+        JSON.stringify({
+          success: false,
+          message: "Invalid request",
+        })
+      );
+    }
+
+    return;
+  }
+
   res.writeHead(404);
   res.end("Not found");
 });
@@ -236,23 +321,25 @@ wss.on("connection", (socket: WebSocket, request) => {
           return;
         }
       
-        const allCharactersReady = game.players.every(
+        
+        const allCharactersConfirmed = game.players.every(
           (player) =>
             player.characterName &&
-            player.characterImageUrl
+            player.characterImageUrl &&
+            player.characterConfirmed
         );
-      
-        if (!allCharactersReady) {
+        
+        if (!allCharactersConfirmed) {
           socket.send(
             JSON.stringify({
               type: "error",
-              message: "Both players must upload their characters first",
+              message: "Both players must lock in their characters first",
             })
           );
-      
+        
           return;
         }
-      
+        
         await prisma.game.update({
           where: {
             id: game.id,

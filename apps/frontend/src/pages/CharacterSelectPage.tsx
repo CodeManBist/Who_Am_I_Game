@@ -1,44 +1,472 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Upload, Check, Loader2, Sparkles } from 'lucide-react';
+import {
+  ArrowLeft,
+  Upload,
+  Check,
+  Loader2,
+  Sparkles,
+  Image as ImageIcon,
+} from 'lucide-react';
+
 import { LogoMark } from '@/components/game/BrandLogo';
-import { MOCK_CHARACTERS } from '@/lib/mock-data';
-import type { Character } from '@/lib/types';
+import { useAuth } from '@/lib/auth-context';
+import { gameSocket } from '@/services/websocket';
+
+const API_URL = 'http://localhost:3001/api/v1';
+
+type UploadedCharacter = {
+  name: string;
+  imageUrl: string;
+  confidence: number;
+  facts?: Record<string, unknown> | null;
+};
 
 export function CharacterSelectPage() {
   const { roomCode } = useParams();
   const navigate = useNavigate();
-  const [selected, setSelected] = useState<Character | null>(null);
+  const auth = useAuth();
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const [character, setCharacter] =
+    useState<UploadedCharacter | null>(null);
+
   const [identifying, setIdentifying] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
-  const handleSelect = (c: Character) => {
-    setSelected(c);
-    setIdentifying(true);
-    setTimeout(() => setIdentifying(false), 1800);
+  const [opponentReady, setOpponentReady] = useState(false);
+  const [myPosition, setMyPosition] = useState<number | null>(null);
+  const [error, setError] = useState('');
+
+  /*
+   * Clean up local preview URL.
+   */
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  /*
+   * Listen for opponent character_ready event.
+   */
+  useEffect(() => {
+    if (!roomCode || !auth.user?.id) {
+      return;
+    }
+  
+    const unsubscribe = gameSocket.onMessage((event) => {
+      console.log(
+        'Character select WebSocket event:',
+        event
+      );
+  
+      if (event.type !== 'character_confirmed') {
+        return;
+      }
+  
+      const confirmedUserId = event.userId;
+  
+      // Ignore our own confirmation.
+      if (confirmedUserId === auth.user?.id) {
+        return;
+      }
+  
+      // Opponent has clicked "Lock it in".
+      setOpponentReady(true);
+    });
+  
+    return () => {
+      unsubscribe();
+    };
+  }, [roomCode, auth.user?.id]);
+
+  /*
+   * Open file picker.
+   */
+  const openFilePicker = () => {
+    if (identifying || confirmed) {
+      return;
+    }
+
+    fileInputRef.current?.click();
   };
 
-  const confirm = () => {
-    setConfirmed(true);
-    setTimeout(() => {
-      navigate(`/room/${roomCode}/countdown`);
-    }, 2200);
+  /*
+ * Check the current room confirmation state.
+ *
+ * WebSocket handles live updates.
+ * This HTTP check handles the case where the
+ * character_confirmed event was missed.
+ */
+const checkRoomReadyState = async () => {
+  if (!roomCode || !auth.token || !auth.user?.id) {
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${API_URL}/rooms/${encodeURIComponent(roomCode)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error || 'Failed to check room status.'
+      );
+    }
+
+    const players = data?.game?.players ?? [];
+
+    const currentPlayer = players.find(
+      (player: {
+        userId: string;
+        position?: number;
+      }) => player.userId === auth.user?.id
+    );
+    
+    if (currentPlayer?.position) {
+      setMyPosition(currentPlayer.position);
+    }
+
+    const opponent = players.find(
+      (player: {
+        userId: string;
+        characterConfirmed?: boolean;
+      }) => player.userId !== auth.user?.id
+    );
+    
+    if (opponent?.characterConfirmed) {
+      setOpponentReady(true);
+    }
+
+    if (opponent?.characterReady) {
+      setOpponentReady(true);
+    }
+  } catch (error) {
+    console.error(
+      'Failed to check character confirmation:',
+      error
+    );
+  }
+};
+
+  useEffect(() => {
+    checkRoomReadyState();
+  }, [roomCode, auth.token, auth.user?.id]);
+
+  /*
+   * Handle image selection.
+   */
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setError('');
+
+    // Validate image type.
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file.');
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      return;
+    }
+
+    // Backend currently allows max 5 MB.
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be smaller than 5MB.');
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      return;
+    }
+
+    // Clean previous preview.
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    const localPreview = URL.createObjectURL(file);
+
+    setSelectedFile(file);
+    setPreviewUrl(localPreview);
+    setCharacter(null);
+    setConfirmed(false);
+    setOpponentReady(false);
+
+    /*
+     * Start real AI identification immediately
+     * after the user selects the image.
+     */
+    await uploadCharacter(file);
   };
+
+  /*
+   * Upload character to backend.
+   */
+  const uploadCharacter = async (file: File) => {
+    if (!roomCode) {
+      setError('Room code is missing.');
+      return;
+    }
+
+    if (!auth.token) {
+      navigate(`/auth?redirect=/room/${roomCode}/select`);
+      return;
+    }
+
+    try {
+      setIdentifying(true);
+      setError('');
+      setCharacter(null);
+
+      const formData = new FormData();
+
+      formData.append('image', file);
+
+      const response = await fetch(
+        `${API_URL}/rooms/${encodeURIComponent(roomCode)}/character`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+          },
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      console.log(
+        'Character upload response:',
+        data
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            data?.message ||
+            'Failed to identify character.'
+        );
+      }
+
+      if (!data?.player) {
+        throw new Error(
+          'Character was uploaded but no character information was returned.'
+        );
+      }
+
+      setCharacter({
+        name: data.player.characterName,
+        imageUrl:
+          data.player.characterImageUrl ||
+          localPreviewFallback(file),
+        confidence: data.player.aiConfidence ?? 0,
+        facts: data.player.characterFacts ?? null,
+      });
+    } catch (error) {
+      console.error(
+        'Character upload error:',
+        error
+      );
+
+      setCharacter(null);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to upload and identify character.'
+      );
+    } finally {
+      setIdentifying(false);
+    }
+  };
+
+  /*
+   * Fallback only if backend doesn't return an image URL.
+   */
+  const localPreviewFallback = (file: File) => {
+    return URL.createObjectURL(file);
+  };
+
+  /*
+   * Choose another image.
+   */
+  const chooseAnother = () => {
+    if (identifying) {
+      return;
+    }
+
+    setSelectedFile(null);
+    setCharacter(null);
+    setError('');
+    setConfirmed(false);
+    setOpponentReady(false);
+
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+    fileInputRef.current?.click();
+  };
+
+  /*
+   * Lock the character after successful AI identification.
+   */
+
+  const confirm = async () => {
+    if (!character || identifying || !auth.token || !roomCode) {
+      return;
+    }
+  
+    try {
+      setError('');
+  
+      const response = await fetch(
+        `${API_URL}/rooms/${encodeURIComponent(roomCode)}/character/confirm`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+          },
+        }
+      );
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+          data?.error ||
+          'Failed to confirm character.'
+        );
+      }
+  
+      setConfirmed(true);
+  
+      console.log(
+        'Character confirmed:',
+        data
+      );
+    } catch (error) {
+      console.error(
+        'Character confirmation error:',
+        error
+      );
+  
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to confirm character.'
+      );
+    }
+  };
+
+  /*
+   * Once our character is locked and opponent is also ready,
+   * move to countdown.
+   */
+  useEffect(() => {
+    if (!confirmed || !opponentReady || !roomCode) {
+      return;
+    }
+  
+    const timer = window.setTimeout(() => {
+      // Only the room creator starts the server countdown.
+      if (myPosition === 1) {
+        gameSocket.send({
+          type: 'start_game',
+          roomCode,
+        });
+      }
+  
+      navigate(`/room/${roomCode}/countdown`);
+    }, 1200);
+  
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    confirmed,
+    opponentReady,
+    myPosition,
+    navigate,
+    roomCode,
+  ]);
+
+  /*
+   * Convert Gemini confidence:
+   *
+   * Backend:
+   * 0.8 -> 80%
+   * 0.9 -> 90%
+   * 1   -> 100%
+   */
+  const confidencePercentage = character
+    ? Math.round(
+        Math.max(
+          0,
+          Math.min(1, character.confidence)
+        ) * 100
+      )
+    : 0;
 
   if (confirmed) {
     return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center bg-[#11110F] text-[#F5F1E8] overflow-hidden">
+      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#11110F] text-[#F5F1E8]">
         <div className="absolute left-1/2 top-1/2 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8FCB9B]/8 blur-3xl" />
+
         <div className="relative text-center animate-scale-in">
           <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#8FCB9B]/15 ring-1 ring-[#8FCB9B]/30">
             <Check className="h-7 w-7 text-[#8FCB9B]" />
           </div>
-          <h1 className="font-display text-2xl font-bold">Locked in.</h1>
-          <p className="mt-2 text-sm text-[#9A958B]">Your mystery person is secret.</p>
-          <div className="mt-5 flex items-center justify-center gap-2 text-sm text-[#5A564F]">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Waiting for Rahul to confirm...
-          </div>
+
+          <h1 className="font-display text-2xl font-bold">
+            Locked in.
+          </h1>
+
+          <p className="mt-2 text-sm text-[#9A958B]">
+            Your mystery person is secret.
+          </p>
+
+          {opponentReady ? (
+            <div className="mt-5 flex items-center justify-center gap-2 text-sm text-[#8FCB9B]">
+              <Check className="h-4 w-4" />
+              Both players are ready.
+            </div>
+          ) : (
+            <div className="mt-5 flex items-center justify-center gap-2 text-sm text-[#5A564F]">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Waiting for your opponent to confirm...
+            </div>
+          )}
         </div>
       </div>
     );
@@ -46,15 +474,21 @@ export function CharacterSelectPage() {
 
   return (
     <div className="min-h-screen bg-[#11110F] text-[#F5F1E8]">
-      {/* header */}
+      {/* Header */}
       <header className="border-b border-[#1F1F1A]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 sm:px-10">
           <div className="flex items-center gap-3">
             <LogoMark />
-            <span className="font-display text-sm font-semibold tracking-tight">WHO AM I?</span>
+
+            <span className="font-display text-sm font-semibold tracking-tight">
+              WHO AM I?
+            </span>
           </div>
+
           <button
-            onClick={() => navigate(`/room/${roomCode}`)}
+            onClick={() =>
+              navigate(`/room/${roomCode}`)
+            }
             className="inline-flex items-center gap-1.5 text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8]"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -67,121 +501,185 @@ export function CharacterSelectPage() {
         <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
           Pick someone they know.
         </h1>
+
         <p className="mt-2 text-sm text-[#9A958B]">
-          Choose a person your friend can figure out by asking questions.
+          Upload a person or character your friend can figure out by asking questions.
         </p>
 
-        {/* upload area */}
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+
+        {/* Upload / change image area */}
         <div className="mt-8">
-          <button className="group relative w-full overflow-hidden rounded-lg border border-dashed border-[#2A2A25] bg-[#181815] p-8 transition-all hover:border-[#FF5A36]/40 hover:bg-[#211F1B]">
-            <div className="flex flex-col items-center gap-3 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#211F1B] ring-1 ring-[#2A2A25] transition-all group-hover:bg-[#FF5A36]/10 group-hover:ring-[#FF5A36]/30">
-                <Upload className="h-5 w-5 text-[#9A958B] transition-colors group-hover:text-[#FF5A36]" />
+          <button
+            type="button"
+            onClick={openFilePicker}
+            disabled={identifying}
+            className="group relative w-full overflow-hidden rounded-lg border border-dashed border-[#2A2A25] bg-[#181815] p-6 transition-all hover:border-[#FF5A36]/40 hover:bg-[#211F1B] disabled:pointer-events-none disabled:opacity-60"
+          >
+            <div className="flex items-center justify-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#211F1B] ring-1 ring-[#2A2A25] transition-all group-hover:bg-[#FF5A36]/10 group-hover:ring-[#FF5A36]/30">
+                {identifying ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-[#FF5A36]" />
+                ) : selectedFile ? (
+                  <ImageIcon className="h-5 w-5 text-[#9A958B] transition-colors group-hover:text-[#FF5A36]" />
+                ) : (
+                  <Upload className="h-5 w-5 text-[#9A958B] transition-colors group-hover:text-[#FF5A36]" />
+                )}
               </div>
-              <div>
-                <p className="text-sm font-semibold">Upload a photo</p>
-                <p className="mt-0.5 text-xs text-[#5A564F]">JPG, PNG up to 10MB</p>
+
+              <div className="text-left">
+                <p className="text-sm font-semibold">
+                  {identifying
+                    ? 'Identifying your image...'
+                    : selectedFile
+                      ? 'Choose another photo'
+                      : 'Upload a photo'}
+                </p>
+
+                <p className="mt-0.5 text-xs text-[#5A564F]">
+                  JPG, PNG, WebP or AVIF up to 5MB
+                </p>
               </div>
             </div>
           </button>
-          <p className="mt-3 text-center text-xs text-[#5A564F]">Or choose from examples</p>
+
+          <p className="mt-3 text-center text-xs text-[#5A564F]">
+            Your image is kept secret from your opponent.
+          </p>
         </div>
 
-        {/* character grid */}
-        <div className="mt-6 grid grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-3">
-          {MOCK_CHARACTERS.map((c) => {
-            const isSelected = selected?.id === c.id;
-            return (
-              <button
-                key={c.id}
-                onClick={() => handleSelect(c)}
-                className={`group relative aspect-[4/5] overflow-hidden rounded-md border transition-all ${
-                  isSelected
-                    ? 'border-[#FF5A36] ring-2 ring-[#FF5A36]/30'
-                    : 'border-[#2A2A25] hover:border-[#3a3a32]'
-                }`}
-              >
-                <img
-                  src={c.imageUrl}
-                  alt={c.archetype}
-                  className="h-full w-full object-cover opacity-80 transition-all group-hover:opacity-95 group-hover:scale-[1.03]"
-                  style={{ filter: 'saturate(0.85) contrast(1.05) brightness(0.9)' }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-2">
-                  <p className="text-[10px] font-semibold text-white/85">{c.archetype}</p>
-                </div>
-                {isSelected && (
-                  <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#FF5A36] text-white animate-scale-in">
-                    <Check className="h-3 w-3" />
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        {/* Error */}
+        {error && (
+          <div className="mt-5 rounded-lg border border-[#E56B6F]/20 bg-[#E56B6F]/10 px-4 py-3 text-sm text-[#E56B6F]">
+            {error}
+          </div>
+        )}
 
-        {/* preview / identification panel */}
-        {selected && (
+        {/* Identification panel */}
+        {selectedFile && (
           <div className="mt-8 animate-slide-up">
             {identifying ? (
               <div className="rounded-lg border border-[#2A2A25] bg-[#181815] p-6">
                 <div className="flex items-center gap-3">
                   <Loader2 className="h-5 w-5 animate-spin text-[#FF5A36]" />
-                  <span className="text-sm font-semibold text-[#9A958B]">IDENTIFYING...</span>
+
+                  <span className="text-sm font-semibold text-[#9A958B]">
+                    AI IS IDENTIFYING YOUR CHARACTER...
+                  </span>
                 </div>
+
                 <div className="mt-4 relative h-1 overflow-hidden rounded-full bg-[#211F1B]">
                   <div className="absolute inset-0 shimmer-bg" />
                 </div>
+
+                <p className="mt-3 text-xs text-[#5A564F]">
+                  Checking the image and identifying the person or character.
+                </p>
               </div>
-            ) : (
+            ) : character ? (
               <div className="rounded-lg border border-[#2A2A25] bg-[#181815] p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <div className="relative h-28 w-24 shrink-0 overflow-hidden rounded-md border border-[#2A2A25] mx-auto sm:mx-0">
-                    <img src={selected.imageUrl} alt={selected.name} className="h-full w-full object-cover" style={{ filter: 'saturate(0.85) contrast(1.05) brightness(0.9)' }} />
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                  {/* Single image display */}
+                  <div className="relative mx-auto h-36 w-28 shrink-0 overflow-hidden rounded-md border border-[#2A2A25] sm:mx-0">
+                    <img
+                      src={
+                        character.imageUrl ||
+                        previewUrl ||
+                        ''
+                      }
+                      alt="Your selected character"
+                      className="h-full w-full object-cover"
+                      style={{
+                        filter:
+                          'saturate(0.85) contrast(1.05) brightness(0.9)',
+                      }}
+                    />
                   </div>
-                  <div className="flex-1 space-y-3">
+
+                  <div className="flex-1 space-y-4">
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#FF5A36]">SECRET</p>
-                      <p className="font-display text-lg font-bold">{selected.name}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#FF5A36]">
+                        SECRET CHARACTER
+                      </p>
+
+                      <p className="mt-1 font-display text-lg font-bold">
+                        {character.name}
+                      </p>
                     </div>
+
                     <div className="flex items-center gap-2 rounded-md bg-[#FF5A36]/8 px-3 py-2 ring-1 ring-[#FF5A36]/15">
-                      <Sparkles className="h-3.5 w-3.5 text-[#FF5A36]" />
-                      <span className="text-xs text-[#9A958B]">AI identified:</span>
-                      <span className="text-xs font-semibold text-[#F5F1E8]">{selected.name}</span>
+                      <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#FF5A36]" />
+
+                      <span className="text-xs text-[#9A958B]">
+                        AI identified:
+                      </span>
+
+                      <span className="truncate text-xs font-semibold text-[#F5F1E8]">
+                        {character.name}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-[#5A564F]">Confidence</span>
-                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-[#211F1B]">
-                        <div className="h-full rounded-full bg-[#FF5A36] transition-all" style={{ width: `${selected.confidence}%` }} />
+
+                    {/* Correct confidence percentage */}
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="text-[10px] uppercase tracking-wider text-[#5A564F]">
+                          AI Confidence
+                        </span>
+
+                        <span className="text-xs font-semibold text-[#FF5A36]">
+                          {confidencePercentage}%
+                        </span>
                       </div>
-                      <span className="text-[10px] font-semibold text-[#FF5A36]">{selected.confidence}%</span>
+
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#211F1B]">
+                        <div
+                          className="h-full rounded-full bg-[#FF5A36] transition-all duration-700"
+                          style={{
+                            width: `${confidencePercentage}%`,
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Actions */}
                 <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <button
-                    onClick={() => setSelected(null)}
-                    className="inline-flex items-center justify-center rounded-md border border-[#2A2A25] bg-[#181815] px-4 py-2 text-sm font-medium text-[#F5F1E8] transition-all hover:border-[#3a3a32]"
+                    onClick={chooseAnother}
+                    disabled={identifying}
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-[#2A2A25] bg-[#181815] px-4 py-2 text-sm font-medium text-[#F5F1E8] transition-all hover:border-[#3a3a32] disabled:cursor-not-allowed disabled:opacity-50"
                   >
+                    <ImageIcon className="h-4 w-4" />
                     Choose another
                   </button>
+
                   <button
                     onClick={confirm}
-                    className="group inline-flex items-center justify-center gap-2 rounded-md bg-[#FF5A36] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#ff6b4a]"
+                    disabled={!character || identifying}
+                    className="group inline-flex items-center justify-center gap-2 rounded-md bg-[#FF5A36] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#ff6b4a] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Check className="h-4 w-4" />
                     Lock it in
                   </button>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         )}
 
-        {!selected && (
+        {!selectedFile && !error && (
           <div className="mt-8 text-center">
-            <p className="text-sm text-[#5A564F]">Select a character to continue</p>
+            <p className="text-sm text-[#5A564F]">
+              Upload a photo to continue
+            </p>
           </div>
         )}
       </div>

@@ -1,41 +1,109 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowLeft } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
+
 import { LogoMark } from '@/components/game/BrandLogo';
 import { useAuth } from '@/lib/auth-context';
 
+const API_URL = 'http://localhost:3001/api/v1';
+
 const PLAYER_A =
   'https://images.pexels.com/photos/7958715/pexels-photo-7958715.jpeg?auto=compress&cs=tinysrgb&w=200&h=260&fit=crop';
+
 const PLAYER_B =
   'https://images.pexels.com/photos/34622355/pexels-photo-34622355.jpeg?auto=compress&cs=tinysrgb&w=200&h=260&fit=crop';
 
 export function JoinRoomPage() {
   const navigate = useNavigate();
   const auth = useAuth();
+
   const [code, setCode] = useState('');
   const [name, setName] = useState(auth.user?.username ?? '');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const join = () => {
-    if (code.trim().toUpperCase() !== 'K7Q-29P') {
-      setError('Room not found. Try K7Q-29P.');
+  const join = async () => {
+    const roomCode = code.trim().toUpperCase();
+
+    if (!roomCode) {
+      setError('Please enter a room code.');
       return;
     }
+
     if (!name.trim()) {
       setError('Please enter your name.');
       return;
     }
-    navigate('/room/K7Q-29P');
+
+    if (!auth.token) {
+      navigate(`/auth?redirect=/join`);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+
+      const response = await fetch(
+        `${API_URL}/rooms/${encodeURIComponent(roomCode)}/join`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${auth.token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      console.log('Join room response:', data);
+
+      if (!response.ok) {
+        setError(
+          data?.error ||
+            data?.message ||
+            'Unable to join the room.'
+        );
+        return;
+      }
+
+      /*
+       * The backend has successfully added Player 2.
+       *
+       * We already know the room code because it came
+       * directly from the input.
+       */
+
+      navigate(`/room/${roomCode}`);
+    } catch (error) {
+      console.error('Join room error:', error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to connect to the server.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="flex min-h-screen flex-col bg-[#11110F] text-[#F5F1E8]">
       <header className="border-b border-[#1F1F1A]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 sm:px-10">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
+          >
             <LogoMark />
-            <span className="font-display text-sm font-semibold tracking-tight">WHO AM I?</span>
+
+            <span className="font-display text-sm font-semibold tracking-tight">
+              WHO AM I?
+            </span>
           </button>
+
           <button
             onClick={() => navigate(-1)}
             className="inline-flex items-center gap-1.5 text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8]"
@@ -51,6 +119,7 @@ export function JoinRoomPage() {
           <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Someone invited you.
           </h1>
+
           <p className="mt-2 text-sm text-[#9A958B]">
             Enter the room code your friend shared with you.
           </p>
@@ -60,14 +129,21 @@ export function JoinRoomPage() {
               <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.15em] text-[#5A564F]">
                 Room code
               </label>
+
               <input
                 value={code}
                 onChange={(e) => {
-                  setCode(e.target.value);
+                  setCode(e.target.value.toUpperCase());
                   setError('');
                 }}
-                placeholder="K7Q-29P"
-                className="h-12 w-full rounded-md border border-[#2A2A25] bg-[#181815] px-4 font-mono text-base uppercase tracking-wider text-[#F5F1E8] placeholder:text-[#5A564F] transition-colors focus:border-[#FF5A36]/50"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    void join();
+                  }
+                }}
+                placeholder="E63T47"
+                disabled={loading}
+                className="h-12 w-full rounded-md border border-[#2A2A25] bg-[#181815] px-4 font-mono text-base uppercase tracking-wider text-[#F5F1E8] placeholder:text-[#5A564F] transition-colors focus:border-[#FF5A36]/50 disabled:cursor-not-allowed disabled:opacity-50"
                 autoFocus
               />
             </div>
@@ -76,22 +152,47 @@ export function JoinRoomPage() {
               <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.15em] text-[#5A564F]">
                 Your name
               </label>
+
               <input
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setError('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    void join();
+                  }
+                }}
                 placeholder="Your name"
-                className="h-12 w-full rounded-md border border-[#2A2A25] bg-[#181815] px-4 text-base text-[#F5F1E8] placeholder:text-[#5A564F] transition-colors focus:border-[#FF5A36]/50"
+                disabled={loading}
+                className="h-12 w-full rounded-md border border-[#2A2A25] bg-[#181815] px-4 text-base text-[#F5F1E8] placeholder:text-[#5A564F] transition-colors focus:border-[#FF5A36]/50 disabled:cursor-not-allowed disabled:opacity-50"
               />
             </div>
 
-            {error && <p className="text-sm text-[#E56B6F]">{error}</p>}
+            {error && (
+              <p className="text-sm text-[#E56B6F]">
+                {error}
+              </p>
+            )}
 
             <button
-              onClick={join}
-              className="group flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#FF5A36] text-base font-semibold text-white transition-all hover:bg-[#ff6b4a]"
+              onClick={() => void join()}
+              disabled={loading}
+              className="group flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#FF5A36] text-base font-semibold text-white transition-all hover:bg-[#ff6b4a] disabled:pointer-events-none disabled:opacity-50"
             >
-              Enter game
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Joining room...
+                </>
+              ) : (
+                <>
+                  Enter game
+
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </>
+              )}
             </button>
 
             <p className="text-center text-sm text-[#5A564F]">
@@ -102,11 +203,31 @@ export function JoinRoomPage() {
           {/* visual preview of two players connecting */}
           <div className="mt-10 flex items-center justify-center gap-3 opacity-50">
             <div className="relative aspect-[3/4] w-16 overflow-hidden rounded-md border border-[#2A2A25]">
-              <img src={PLAYER_A} alt="Player 1" className="h-full w-full object-cover" style={{ filter: 'saturate(0.8) contrast(1.08) brightness(0.92)' }} />
+              <img
+                src={PLAYER_A}
+                alt="Player 1"
+                className="h-full w-full object-cover"
+                style={{
+                  filter:
+                    'saturate(0.8) contrast(1.08) brightness(0.92)',
+                }}
+              />
             </div>
-            <span className="font-display text-lg font-bold text-[#3a3a32]">VS</span>
+
+            <span className="font-display text-lg font-bold text-[#3a3a32]">
+              VS
+            </span>
+
             <div className="relative aspect-[3/4] w-16 overflow-hidden rounded-md border border-[#2A2A25]">
-              <img src={PLAYER_B} alt="Player 2" className="h-full w-full object-cover" style={{ filter: 'saturate(0.8) contrast(1.08) brightness(0.92)' }} />
+              <img
+                src={PLAYER_B}
+                alt="Player 2"
+                className="h-full w-full object-cover"
+                style={{
+                  filter:
+                    'saturate(0.8) contrast(1.08) brightness(0.92)',
+                }}
+              />
             </div>
           </div>
         </div>

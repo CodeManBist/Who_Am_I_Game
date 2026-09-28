@@ -114,6 +114,11 @@ roomRouter.get('/:roomCode', authenticateToken, async(req: Request<{ roomCode: s
                 id: true,
                 position: true,
                 userId: true,
+
+                characterName: true,
+                characterImageUrl: true,
+                characterConfirmed: true,
+                
                 user: {
                   select: {
                     id: true,
@@ -158,6 +163,12 @@ roomRouter.get('/:roomCode', authenticateToken, async(req: Request<{ roomCode: s
               userId: player.userId,
               username: player.user.username,
               avatarUrl: player.user.avatarUrl,
+
+              characterReady: Boolean(
+                player.characterName && player.characterImageUrl
+              ),
+
+              characterConfirmed: player.characterConfirmed,
             })),
           },
         });
@@ -398,6 +409,17 @@ roomRouter.post(
           req.file.buffer,
           req.file.mimetype
         );
+
+        console.log('GEMINI RESULT:', aiResult);
+
+        if (!aiResult.validForGame) {
+          return res.status(400).json({
+            error: 'Invalid character image',
+            message:
+              aiResult.reason ||
+              'Please upload a recognizable person or fictional character.',
+          });
+        }
         
         // AI will be added next.
         const characterName = aiResult.characterName;
@@ -418,7 +440,7 @@ roomRouter.post(
           });
 
           //Notify Websocket server
-          await fetch("http://localhost:3001/internal/character-ready", {
+          await fetch("http://localhost:3002/internal/character-ready", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -488,6 +510,140 @@ roomRouter.post(
     }
   );
 
+  roomRouter.post(
+    '/:roomCode/character/confirm',
+    authenticateToken,
+    async (
+      req: Request<{ roomCode: string }>,
+      res: Response
+    ) => {
+      try {
+        const userId = req.user?.userId;
+        const { roomCode } = req.params;
+  
+        if (!userId) {
+          return res.status(401).json({
+            message: 'Unauthorized',
+          });
+        }
+  
+        const game = await prisma.game.findUnique({
+          where: {
+            roomCode,
+          },
+          include: {
+            players: true,
+          },
+        });
+  
+        if (!game) {
+          return res.status(404).json({
+            message: 'Room not found',
+          });
+        }
+  
+        const player = game.players.find(
+          (player) => player.userId === userId
+        );
+  
+        if (!player) {
+          return res.status(403).json({
+            message: 'You are not a player in this room',
+          });
+        }
+  
+        if (
+          game.status !== 'WAITING' &&
+          game.status !== 'UPLOADING'
+        ) {
+          return res.status(400).json({
+            message: 'Character cannot be confirmed at this stage',
+          });
+        }
+  
+        if (
+          !player.characterName ||
+          !player.characterImageUrl
+        ) {
+          return res.status(400).json({
+            message: 'Please upload and identify your character before confirming',
+          });
+        }
+  
+        const updatedPlayer =
+          await prisma.gamePlayer.update({
+            where: {
+              id: player.id,
+            },
+            data: {
+              characterConfirmed: true,
+            },
+          });
+  
+        const updatedPlayers =
+          await prisma.gamePlayer.findMany({
+            where: {
+              gameId: game.id,
+            },
+          });
+  
+        const bothPlayersConfirmed =
+          updatedPlayers.length === 2 &&
+          updatedPlayers.every(
+            (player) => player.characterConfirmed
+          );
+  
+        // Notify WebSocket server
+        try {
+          await fetch(
+            'http://localhost:3002/internal/character-confirmed',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                roomCode,
+                userId,
+              }),
+            }
+          );
+        } catch (wsError) {
+          console.error(
+            'Failed to notify WebSocket server:',
+            wsError
+          );
+        }
+  
+        return res.status(200).json({
+          message: 'Character confirmed successfully',
+  
+          player: {
+            id: updatedPlayer.id,
+            position: updatedPlayer.position,
+            characterConfirmed:
+              updatedPlayer.characterConfirmed,
+          },
+  
+          game: {
+            roomCode: game.roomCode,
+            status: game.status,
+            bothPlayersConfirmed,
+          },
+        });
+      } catch (error) {
+        console.error(
+          'Character confirmation error:',
+          error
+        );
+  
+        return res.status(500).json({
+          error: 'Failed to confirm character',
+        });
+      }
+    }
+  );
+
 roomRouter.post('/:roomCode/start', authenticateToken, async (req: Request<{ roomCode: string }>, res: Response) => {
     const userId = req.user?.userId;
     const { roomCode } = req.params;
@@ -530,11 +686,12 @@ roomRouter.post('/:roomCode/start', authenticateToken, async (req: Request<{ roo
     const allCharactersReady = game.players.every(
         (player) =>
           player.characterName &&
-          player.characterImageUrl
+          player.characterImageUrl &&
+          player.characterConfirmed
       );
 
       if (!allCharactersReady) {
-        return res.status(400).json({ message: 'Both players must select their characters before starting the game' });
+        return res.status(400).json({ message: 'Both players must lock their characters before starting the game' });
       }
 
     const updateGameStatus = await prisma.game.update({

@@ -71,14 +71,15 @@ model GamePlayer {
 
   // Character selected/uploaded by this player
   // for the opponent to guess.
-  characterName     String?
-  characterImageUrl String?
-  characterFacts    Json?
-  aiConfidence      Float?
+  characterName      String?
+  characterImageUrl  String?
+  characterFacts     Json?
+  aiConfidence       Float?
+  characterConfirmed Boolean  @default(false)
 
-  game              Game     @relation( fields: [gameId], references: [id], onDelete: Cascade )
+  game              Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
 
-  user              User     @relation( fields: [userId], references: [id], onDelete: Cascade )
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt         DateTime @default(now())
 
@@ -88,7 +89,6 @@ model GamePlayer {
   @@index([gameId])
   @@index([userId])
 }
-
 model GameMessage {
   id        String      @id @default(cuid())
 

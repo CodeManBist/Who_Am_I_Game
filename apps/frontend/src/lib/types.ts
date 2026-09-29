@@ -1,21 +1,29 @@
-export type PlayerStatus = 'host' | 'connected' | 'waiting' | 'disconnected';
+export type PlayerStatus =
+  | 'host'
+  | 'connected'
+  | 'waiting'
+  | 'disconnected';
 
 export type Player = {
   id: string;
+  userId: string;
   name: string;
   avatarUrl?: string;
+  position: number;
   status: PlayerStatus;
   isYou: boolean;
+
   characterConfirmed: boolean;
-  characterId?: string;
+  characterReady: boolean;
+  characterImageUrl?: string | null;
 };
 
 export type Character = {
   id: string;
   name: string;
-  archetype: string;
   imageUrl: string;
   confidence: number;
+  archetype?: string;
 };
 
 export type GamePhase =

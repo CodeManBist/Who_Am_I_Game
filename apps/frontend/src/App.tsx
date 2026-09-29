@@ -17,12 +17,13 @@ import './App.css';
 function App() {
   return (
     <AuthProvider>
-      <GameProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <GameProvider>
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/how-to-play" element={<HowToPlayPage />} />
             <Route path="/auth" element={<AuthPage />} />
+
             <Route
               path="/create"
               element={
@@ -31,6 +32,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/join"
               element={
@@ -39,6 +41,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/room/:roomCode"
               element={
@@ -47,6 +50,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/room/:roomCode/select"
               element={
@@ -55,6 +59,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/room/:roomCode/countdown"
               element={
@@ -63,6 +68,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/game/:roomCode"
               element={
@@ -71,6 +77,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/game/:roomCode/result"
               element={
@@ -80,8 +87,8 @@ function App() {
               }
             />
           </Routes>
-        </BrowserRouter>
-      </GameProvider>
+        </GameProvider>
+      </BrowserRouter>
     </AuthProvider>
   );
 }

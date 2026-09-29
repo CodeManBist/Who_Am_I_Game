@@ -163,11 +163,13 @@ roomRouter.get('/:roomCode', authenticateToken, async(req: Request<{ roomCode: s
               userId: player.userId,
               username: player.user.username,
               avatarUrl: player.user.avatarUrl,
-
+            
+              characterImageUrl: player.characterImageUrl,
+            
               characterReady: Boolean(
                 player.characterName && player.characterImageUrl
               ),
-
+            
               characterConfirmed: player.characterConfirmed,
             })),
           },

@@ -10,7 +10,6 @@ import { ChatInput } from '@/components/game/ChatInput';
 import { GameControls } from '@/components/game/GameControls';
 import { GuessModal } from '@/components/game/GuessModal';
 import { useGame } from '@/lib/game-context';
-import { MOCK_CHARACTERS } from '@/lib/mock-data';
 
 const PLAYER_B =
   'https://images.pexels.com/photos/34622355/pexels-photo-34622355.jpeg?auto=compress&cs=tinysrgb&w=500&h=650&fit=crop';
@@ -21,16 +20,8 @@ export function GamePage() {
   const game = useGame();
   const [seconds, setSeconds] = useState(42);
   const [guessOpen, setGuessOpen] = useState(false);
-  const startedRef = useRef(false);
+ 
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-    game.seedChat();
-    game.simulateOpponentConfirm();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -45,13 +36,20 @@ export function GamePage() {
     }
   }, [game.messages, game.opponentTyping]);
 
-  const opponentCharacter = game.opponentCharacter ?? MOCK_CHARACTERS[1];
+  const opponentImageUrl = game.opponent?.characterImageUrl;
+
   const timeString = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
-  const submitGuess = (guess: string) => {
+  const submitGuess = async (guess: string) => {
     setGuessOpen(false);
-    game.submitGuess(guess, opponentCharacter.name, timeString);
-    navigate(`/game/${roomCode}/result`);
+  
+    const result = await game.submitGuess(guess);
+
+    if (result?.correct) {
+      navigate(`/game/${roomCode}/result`);
+    } else {
+      console.log('Incorrect guess');
+    }
   };
 
   return (
@@ -81,8 +79,18 @@ export function GamePage() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#FF5A36]">
             Who are they?
           </p>
-          {/* mystery photo */}
-          <MysteryPhoto src={opponentCharacter.imageUrl} size="md" float={false} rotate="-2deg" />
+          {opponentImageUrl ? (
+  <MysteryPhoto
+    src={opponentImageUrl}
+    size="md"
+    float={false}
+    rotate="-2deg"
+  />
+) : (
+  <div className="flex h-64 w-48 items-center justify-center rounded-lg border border-[#2A2A25] bg-[#181815] text-xs text-[#5A564F]">
+    Waiting for character...
+  </div>
+)}
           {/* opponent video */}
           <div className="w-full max-w-xs">
             <div className="group relative aspect-[3/4] w-full overflow-hidden rounded-lg border border-[#2A2A25] bg-[#181815] animate-drift">

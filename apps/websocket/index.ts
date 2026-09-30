@@ -95,43 +95,46 @@ const server = createServer(async (req, res) => {
     try {
       const body = await new Promise<string>((resolve, reject) => {
         let data = "";
-
+  
         req.on("data", (chunk) => {
           data += chunk;
         });
-
+  
         req.on("end", () => {
           resolve(data);
         });
-
+  
         req.on("error", reject);
       });
-
+  
       const { roomCode, userId } = JSON.parse(body);
-
+  
       console.log("Character confirmed:", {
         roomCode,
         userId,
       });
-
+  
       const room = rooms.get(roomCode);
-
+  
       if (!room) {
         res.writeHead(200, {
           "Content-Type": "application/json",
         });
-
+  
         res.end(
           JSON.stringify({
             success: true,
             message: "No connected players in room",
           })
         );
-
+  
         return;
       }
-
-      // Tell all connected players in this room
+  
+      // ----------------------------------------------------------
+      // Tell connected players that this character was confirmed
+      // ----------------------------------------------------------
+  
       for (const client of room) {
         if (client.readyState === WebSocket.OPEN) {
           client.send(
@@ -142,14 +145,144 @@ const server = createServer(async (req, res) => {
           );
         }
       }
-
+  
+      // ----------------------------------------------------------
+      // Check whether BOTH players have confirmed
+      // ----------------------------------------------------------
+  
+      const game = await prisma.game.findUnique({
+        where: {
+          roomCode,
+        },
+        include: {
+          players: true,
+        },
+      });
+  
+      if (!game) {
+        res.writeHead(404, {
+          "Content-Type": "application/json",
+        });
+  
+        res.end(
+          JSON.stringify({
+            success: false,
+            message: "Game not found",
+          })
+        );
+  
+        return;
+      }
+  
+      const bothPlayersConfirmed =
+        game.players.length === 2 &&
+        game.players.every(
+          (player) =>
+            player.characterConfirmed
+        );
+  
+      console.log(
+        "Both players confirmed:",
+        bothPlayersConfirmed
+      );
+  
+      // ----------------------------------------------------------
+      // Only start countdown when BOTH are confirmed
+      // ----------------------------------------------------------
+  
+      if (
+        bothPlayersConfirmed &&
+        game.status !== "COUNTDOWN" &&
+        game.status !== "PLAYING"
+      ) {
+        console.log(
+          `Starting automatic countdown for room ${roomCode}`
+        );
+  
+        await prisma.game.update({
+          where: {
+            id: game.id,
+          },
+          data: {
+            status: "COUNTDOWN",
+          },
+        });
+  
+        // --------------------------------------------------------
+        // 3 → 2 → 1
+        // --------------------------------------------------------
+  
+        for (
+          let seconds = 3;
+          seconds >= 1;
+          seconds--
+        ) {
+          for (const client of room) {
+            if (
+              client.readyState ===
+              WebSocket.OPEN
+            ) {
+              client.send(
+                JSON.stringify({
+                  type: "game_countdown",
+                  seconds,
+                })
+              );
+            }
+          }
+  
+          await new Promise((resolve) =>
+            setTimeout(resolve, 1000)
+          );
+        }
+  
+        // --------------------------------------------------------
+        // Start game
+        // --------------------------------------------------------
+  
+        await prisma.game.update({
+          where: {
+            id: game.id,
+          },
+          data: {
+            status: "PLAYING",
+            currentTurn: 1,
+            startedAt: new Date(),
+          },
+        });
+  
+        // --------------------------------------------------------
+        // Tell both players
+        // --------------------------------------------------------
+  
+        for (const client of room) {
+          if (
+            client.readyState ===
+            WebSocket.OPEN
+          ) {
+            client.send(
+              JSON.stringify({
+                type: "game_started",
+                currentTurn: 1,
+                action: "question",
+              })
+            );
+          }
+        }
+  
+        console.log(
+          `Game started automatically for room ${roomCode}`
+        );
+      }
+  
       res.writeHead(200, {
         "Content-Type": "application/json",
       });
-
+  
       res.end(
         JSON.stringify({
           success: true,
+          bothPlayersConfirmed,
         })
       );
     } catch (error) {
@@ -157,11 +290,11 @@ const server = createServer(async (req, res) => {
         "Character-confirmed event failed:",
         error
       );
-
+  
       res.writeHead(400, {
         "Content-Type": "application/json",
       });
-
+  
       res.end(
         JSON.stringify({
           success: false,
@@ -169,12 +302,9 @@ const server = createServer(async (req, res) => {
         })
       );
     }
-
+  
     return;
   }
-
-  res.writeHead(404);
-  res.end("Not found");
 });
 
 const wss = new WebSocketServer({ 
@@ -240,21 +370,263 @@ wss.on("connection", (socket: WebSocket, request) => {
       }
 
       //SEND MESSAGE
-      if(message.type === "send_message") {
+      // ASK QUESTION
+      if (message.type === "question") {
         const roomCode = message.roomCode;
-        const room = rooms.get(roomCode);
-
-        if(!room) {
+        const text = message.message?.trim();
+      
+        if (!roomCode || !text) {
+          socket.send(
+            JSON.stringify({
+              type: "error",
+              message: "Question cannot be empty",
+            })
+          );
+        
           return;
         }
-
-        for(const client of room) {
-          if(client.readyState === WebSocket.OPEN) {
+      
+        const game = await prisma.game.findUnique({
+          where: {
+            roomCode,
+          },
+          include: {
+            players: true,
+          },
+        });
+      
+        if (!game) {
+          socket.send(
+            JSON.stringify({
+              type: "error",
+              message: "Game not found",
+            })
+          );
+        
+          return;
+        }
+      
+        // Game must already be running
+        if (game.status !== "PLAYING") {
+          socket.send(
+            JSON.stringify({
+              type: "error",
+              message: "Game is not currently being played",
+            })
+          );
+        
+          return;
+        }
+      
+        // Find the player sending the question
+        const currentPlayer = game.players.find(
+          (player) => player.userId === userId
+        );
+      
+        if (!currentPlayer) {
+          socket.send(
+            JSON.stringify({
+              type: "error",
+              message: "You are not a player in this game",
+            })
+          );
+        
+          return;
+        }
+      
+        // IMPORTANT:
+        // Server decides whose turn it is
+        if (game.currentTurn !== currentPlayer.position) {
+          socket.send(
+            JSON.stringify({
+              type: "error",
+              message: "It is not your turn",
+            })
+          );
+        
+          return;
+        }
+      
+        // Save question
+        const savedMessage = await prisma.gameMessage.create      ({
+          data: {
+            gameId: game.id,
+            senderId: userId,
+            type: "QUESTION",
+            message: text,
+          },
+        });
+      
+        // Switch turn
+        const nextTurn = currentPlayer.position === 1 ? 2 :       1;
+      
+        await prisma.game.update({
+          where: {
+            id: game.id,
+          },
+          data: {
+            currentTurn: nextTurn,
+          },
+        });
+      
+        const room = rooms.get(roomCode);
+      
+        if (!room) {
+          return;
+        }
+      
+        // Broadcast question
+        for (const client of room) {
+          if (client.readyState === WebSocket.OPEN) {
             client.send(
               JSON.stringify({
-                type: "message_received",
+                type: "question_received",
+                messageId: savedMessage.id,
                 userId,
-                message: message.message,
+                message: savedMessage.message,
+                createdAt: savedMessage.createdAt,
+              })
+            );
+          }
+        }
+      
+        // Tell both players whose turn it is
+        for (const client of room) {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(
+              JSON.stringify({
+                type: "turn_changed",
+                currentTurn: nextTurn,
+              })
+            );
+          }
+        }
+      }
+
+      // ANSWER QUESTION
+      if (message.type === "answer") {
+        const roomCode = message.     roomCode;
+        const text = message.message?.      trim();
+      
+        if (!roomCode || !text) {
+          socket.send(
+            JSON.stringify({
+              type: "error",
+              message: "Answer cannot       be empty",
+            })
+          );
+        
+          return;
+        }
+      
+        const game = await prisma.game.     findUnique({
+          where: {
+            roomCode,
+          },
+          include: {
+            players: true,
+          },
+        });
+      
+        if (!game) {
+          socket.send(
+            JSON.stringify({
+              type: "error",
+              message: "Game not found",
+            })
+          );
+        
+          return;
+        }
+      
+        if (game.status !== "PLAYING") {
+          socket.send(
+            JSON.stringify({
+              type: "error",
+              message: "Game is not       currently being played",
+            })
+          );
+        
+          return;
+        }
+      
+        const currentPlayer = game.     players.find(
+          (player) => player.userId ===       userId
+        );
+      
+        if (!currentPlayer) {
+          socket.send(
+            JSON.stringify({
+              type: "error",
+              message: "You are not a       player in this game",
+            })
+          );
+        
+          return;
+        }
+      
+        // Server decides whose turn it       is
+        if (game.currentTurn !==      currentPlayer.position) {
+          socket.send(
+            JSON.stringify({
+              type: "error",
+              message: "It is not your      turn",
+            })
+          );
+        
+          return;
+        }
+      
+        // Save answer
+        const savedMessage = await      prisma.gameMessage.create({
+          data: {
+            gameId: game.id,
+            senderId: userId,
+            type: "ANSWER",
+            message: text,
+          },
+        });
+      
+        // Switch turn
+        const nextTurn = currentPlayer.     position === 1 ? 2 : 1;
+      
+        await prisma.game.update({
+          where: {
+            id: game.id,
+          },
+          data: {
+            currentTurn: nextTurn,
+          },
+        });
+      
+        const room = rooms.get      (roomCode);
+      
+        if (!room) {
+          return;
+        }
+      
+        // Broadcast answer
+        for (const client of room) {
+          if (client.readyState ===       WebSocket.OPEN) {
+            client.send(
+              JSON.stringify({
+                type: "answer_received",
+                messageId: savedMessage.      id,
+                userId,
+                message: savedMessage.      message,
+                createdAt: savedMessage.      createdAt,
+              })
+            );
+          }
+        }
+      
+        // Tell both players whose turn       it is
+        for (const client of room) {
+          if (client.readyState ===       WebSocket.OPEN) {
+            client.send(
+              JSON.stringify({
+                type: "turn_changed",
+                currentTurn: nextTurn,
               })
             );
           }

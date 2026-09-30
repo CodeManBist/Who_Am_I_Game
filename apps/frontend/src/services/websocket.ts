@@ -4,32 +4,47 @@ export type WebSocketEvent = {
 };
 
 type EventHandler = (event: WebSocketEvent) => void;
+type StatusHandler = (connected: boolean) => void;
 
 const WS_URL = "ws://localhost:3002";
 
 class GameWebSocket {
   private socket: WebSocket | null = null;
+
   private listeners = new Set<EventHandler>();
+
+  private statusListeners =
+    new Set<StatusHandler>();
 
   connect(token: string) {
     if (!token) {
-      throw new Error("WebSocket token is required");
+      throw new Error(
+        "WebSocket token is required"
+      );
     }
 
     if (
       this.socket &&
-      (this.socket.readyState === WebSocket.OPEN ||
-        this.socket.readyState === WebSocket.CONNECTING)
+      (this.socket.readyState ===
+        WebSocket.OPEN ||
+        this.socket.readyState ===
+          WebSocket.CONNECTING)
     ) {
       return;
     }
 
     this.socket = new WebSocket(
-      `${WS_URL}?token=${encodeURIComponent(token)}`
+      `${WS_URL}?token=${encodeURIComponent(
+        token
+      )}`
     );
 
     this.socket.onopen = () => {
-      console.log("WebSocket connected");
+      console.log(
+        "WebSocket connected"
+      );
+
+      this.notifyStatus(true);
     };
 
     this.socket.onmessage = (event) => {
@@ -37,11 +52,16 @@ class GameWebSocket {
         const data: WebSocketEvent =
           JSON.parse(event.data);
 
-        console.log("WebSocket received:", data);
+        console.log(
+          "WebSocket received:",
+          data
+        );
 
-        this.listeners.forEach((listener) => {
-          listener(data);
-        });
+        this.listeners.forEach(
+          (listener) => {
+            listener(data);
+          }
+        );
       } catch (error) {
         console.error(
           "Invalid WebSocket message:",
@@ -58,8 +78,13 @@ class GameWebSocket {
     };
 
     this.socket.onclose = () => {
-      console.log("WebSocket disconnected");
+      console.log(
+        "WebSocket disconnected"
+      );
+
       this.socket = null;
+
+      this.notifyStatus(false);
     };
   }
 
@@ -68,26 +93,62 @@ class GameWebSocket {
   ) {
     if (
       !this.socket ||
-      this.socket.readyState !== WebSocket.OPEN
+      this.socket.readyState !==
+        WebSocket.OPEN
     ) {
       console.error(
         "WebSocket is not connected"
       );
 
-      return;
+      return false;
     }
+
+    console.log(
+      "WebSocket sending:",
+      message
+    );
 
     this.socket.send(
       JSON.stringify(message)
     );
+
+    return true;
   }
 
-  onMessage(handler: EventHandler) {
+  onMessage(
+    handler: EventHandler
+  ) {
     this.listeners.add(handler);
 
     return () => {
-      this.listeners.delete(handler);
+      this.listeners.delete(
+        handler
+      );
     };
+  }
+
+  onStatus(
+    handler: StatusHandler
+  ) {
+    this.statusListeners.add(
+      handler
+    );
+
+    return () => {
+      this.statusListeners.delete(
+        handler
+      );
+    };
+  }
+
+  private notifyStatus(
+    connected: boolean
+  ) {
+    this.statusListeners.forEach(
+      (listener) => {
+        listener(connected);
+      }
+    );
   }
 
   disconnect() {
@@ -95,6 +156,8 @@ class GameWebSocket {
       this.socket.close();
       this.socket = null;
     }
+
+    this.notifyStatus(false);
   }
 
   get isConnected() {

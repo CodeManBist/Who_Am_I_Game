@@ -10,6 +10,10 @@ const WS_URL = "ws://localhost:3002";
 
 class GameWebSocket {
   private socket: WebSocket | null = null;
+  private token: string | null = null;
+  private reconnectTimer: number | null = null;
+  private reconnectAttempts = 0;
+  private intentionallyDisconnected = false;
 
   private listeners = new Set<EventHandler>();
 
@@ -22,6 +26,9 @@ class GameWebSocket {
         "WebSocket token is required"
       );
     }
+
+    this.token = token;
+    this.intentionallyDisconnected = false;
 
     if (
       this.socket &&
@@ -39,7 +46,10 @@ class GameWebSocket {
       )}`
     );
 
-    this.socket.onopen = () => {
+    const socket = this.socket;
+    socket.onopen = () => {
+      if (this.socket !== socket) return;
+      this.reconnectAttempts = 0;
       console.log(
         "WebSocket connected"
       );
@@ -47,7 +57,8 @@ class GameWebSocket {
       this.notifyStatus(true);
     };
 
-    this.socket.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (this.socket !== socket) return;
       try {
         const data: WebSocketEvent =
           JSON.parse(event.data);
@@ -70,14 +81,15 @@ class GameWebSocket {
       }
     };
 
-    this.socket.onerror = (error) => {
+    socket.onerror = (error) => {
       console.error(
         "WebSocket error:",
         error
       );
     };
 
-    this.socket.onclose = () => {
+    socket.onclose = () => {
+      if (this.socket !== socket) return;
       console.log(
         "WebSocket disconnected"
       );
@@ -85,6 +97,13 @@ class GameWebSocket {
       this.socket = null;
 
       this.notifyStatus(false);
+      if (!this.intentionallyDisconnected && this.token) {
+        const delay = Math.min(10000, 500 * (2 ** this.reconnectAttempts++));
+        this.reconnectTimer = window.setTimeout(() => {
+          this.reconnectTimer = null;
+          if (!this.intentionallyDisconnected && this.token) this.connect(this.token);
+        }, delay);
+      }
     };
   }
 
@@ -152,6 +171,12 @@ class GameWebSocket {
   }
 
   disconnect() {
+    this.intentionallyDisconnected = true;
+    this.token = null;
+    if (this.reconnectTimer !== null) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (this.socket) {
       this.socket.close();
       this.socket = null;

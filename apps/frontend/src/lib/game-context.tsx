@@ -167,8 +167,27 @@ export function GameProvider({
                   )
                 : null
             );
+          } else if (typeof event.seconds === 'number') {
+            // Compatibility with a countdown event delivered by an older
+            // server process while this client is reconnecting.
+            setCountdown(Math.min(3, Math.max(1, event.seconds)));
           }
 
+          return;
+        }
+
+        if (event.type === 'room_state') {
+          if (event.status === 'COUNTDOWN' && typeof event.countdownEndsAt === 'number') {
+            countdownDeadlineRef.current = event.countdownEndsAt;
+            const remaining = event.countdownEndsAt - Date.now();
+            setCountdown(remaining > 0 ? Math.min(3, Math.ceil(remaining / 1000)) : null);
+          }
+          if (typeof event.currentTurn === 'number') {
+            state.setCurrentTurn(event.currentTurn);
+            if (event.action === 'question' || event.action === 'answer') {
+              state.setTurnAction(event.action);
+            }
+          }
           return;
         }
 
@@ -211,6 +230,10 @@ export function GameProvider({
             );
           }
 
+          return;
+        }
+
+        if (event.type === 'game_finished') {
           return;
         }
 

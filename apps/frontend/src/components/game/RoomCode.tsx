@@ -37,7 +37,7 @@ export function RoomCode({
   return (
     <button
       onClick={copy}
-      className={`group inline-flex items-center gap-2 rounded-md border border-[#2A2A25] bg-[#181815] px-2.5 py-1 font-mono text-xs font-semibold tracking-wider transition-all hover:border-[#FF5A36]/40 ${className}`}
+      className={`group inline-flex min-h-11 items-center gap-2 rounded-md border border-[#2A2A25] bg-[#181815] px-2.5 py-1 font-mono text-xs font-semibold tracking-wider transition-all hover:border-[#FF5A36]/40 ${className}`}
     >
       <span>{code}</span>
       {copied ? (

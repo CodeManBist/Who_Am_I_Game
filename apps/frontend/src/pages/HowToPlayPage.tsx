@@ -1,10 +1,8 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { LogoMark } from '@/components/game/BrandLogo';
-import { LiveBadge } from '@/components/game/LiveBadge';
-import { MysteryPhoto } from '@/components/game/MysteryPhoto';
 import { RoomCode } from '@/components/game/RoomCode';
-import { HOW_TO_PLAY_STEPS } from '@/lib/mock-data';
+import { MobileMenu } from '@/components/game/MobileMenu';
 
 const PLAYER_A =
   'https://images.pexels.com/photos/7958715/pexels-photo-7958715.jpeg?auto=compress&cs=tinysrgb&w=400&h=500&fit=crop';
@@ -15,31 +13,32 @@ const MYSTERY =
 
 export function HowToPlayPage() {
   return (
-    <div className="min-h-screen bg-[#11110F] text-[#F5F1E8]">
+    <div className="min-h-[100dvh] bg-[#11110F] text-[#F5F1E8]">
       {/* header */}
       <header className="relative z-30 border-b border-[#1F1F1A]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 sm:px-10 sm:py-6">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-10 sm:py-6">
           <Link to="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
             <LogoMark />
             <span className="font-display text-sm font-semibold tracking-tight">WHO AM I?</span>
           </Link>
           <Link
             to="/create"
-            className="group inline-flex items-center gap-1.5 rounded-md bg-[#FF5A36] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-all hover:bg-[#ff6b4a]"
+            className="group hidden min-h-10 items-center gap-1.5 rounded-md bg-[#FF5A36] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-all hover:bg-[#ff6b4a] sm:inline-flex"
           >
             Create room
             <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
           </Link>
+          <MobileMenu />
         </div>
       </header>
 
       {/* hero */}
-      <section className="px-6 py-16 sm:px-10 sm:py-24">
+      <section className="px-4 py-12 sm:px-10 sm:py-24">
         <div className="mx-auto max-w-4xl text-center">
           <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#FF5A36]">
             How to play
           </p>
-          <h1 className="font-display text-4xl font-bold leading-tight tracking-tight sm:text-6xl">
+          <h1 className="font-display text-[clamp(2rem,9vw,3.75rem)] font-bold leading-tight tracking-tight">
             Pick a person.
             <br />
             Hide the name.
@@ -50,8 +49,8 @@ export function HowToPlayPage() {
       </section>
 
       {/* steps */}
-      <section className="px-6 pb-20 sm:px-10 sm:pb-28">
-        <div className="mx-auto max-w-3xl space-y-16">
+      <section className="px-4 pb-16 sm:px-10 sm:pb-28">
+        <div className="mx-auto max-w-3xl space-y-10 sm:space-y-16">
           {/* Step 01 — Create a room */}
           <div className="grid items-center gap-6 sm:grid-cols-[1fr_auto] sm:gap-12">
             <div>
@@ -75,14 +74,17 @@ export function HowToPlayPage() {
             <div>
               <span className="font-display text-xs font-medium text-[#4a463f]">STEP 02</span>
               <h2 className="mt-1 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-                Pick someone
+                Choose your character
               </h2>
               <p className="mt-2 text-sm text-[#9A958B]">
-                Upload a photo or choose from examples. Your friend sees the image, not the name.
+                Choose a person or character for yourself. You can see your choice; your opponent cannot.
               </p>
             </div>
-            <div className="flex justify-center">
-              <MysteryPhoto src={MYSTERY} size="md" float={false} />
+            <div className="flex flex-col items-center gap-2">
+              <div className="aspect-[4/5] w-24 overflow-hidden rounded-lg border border-[#8FCB9B]/30 bg-[#181815] sm:w-28">
+                <img src={MYSTERY} alt="Example of your own selected character" className="h-full w-full object-cover" />
+              </div>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#8FCB9B]">My character · visible to me</span>
             </div>
           </div>
 
@@ -93,10 +95,10 @@ export function HowToPlayPage() {
             <div>
               <span className="font-display text-xs font-medium text-[#4a463f]">STEP 03</span>
               <h2 className="mt-1 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-                Meet face to face
+                Take turns
               </h2>
               <p className="mt-2 text-sm text-[#9A958B]">
-                Turn on your camera and microphone. See each other live.
+                Ask a question on your turn, then answer your opponent's question. Each player is trying to discover the other's character.
               </p>
             </div>
             <div className="flex justify-center gap-2">
@@ -158,17 +160,17 @@ export function HowToPlayPage() {
                 Make your guess
               </h2>
               <p className="mt-2 text-sm text-[#9A958B]">
-                One shot. Type the name and lock it in.
+                Guess your opponent's character when you think you know it. A wrong guess leaves the game in play.
               </p>
             </div>
             <div className="w-full max-w-xs">
               <div className="rounded-lg border border-[#2A2A25] bg-[#181815] p-4">
-                <p className="mb-3 text-sm text-[#9A958B]">Who is it?</p>
+                <p className="mb-3 text-sm text-[#9A958B]">Who is your opponent's character?</p>
                 <div className="mb-3 rounded-md border border-[#2A2A25] bg-[#11110F] px-3 py-2 text-xs text-[#5A564F]">
                   Type their name...
                 </div>
                 <div className="flex items-center justify-center gap-1.5 rounded-md bg-[#FF5A36] px-3 py-2 text-xs font-semibold text-white">
-                  <span>Lock in guess</span>
+                  <span>Submit guess</span>
                   <ArrowRight className="h-3 w-3" />
                 </div>
               </div>
@@ -185,7 +187,7 @@ export function HowToPlayPage() {
                 Reveal
               </h2>
               <p className="mt-2 text-sm text-[#9A958B]">
-                The mystery photograph is revealed. Did you get it right?
+                A correct guess wins. Your opponent's character remains a mystery until you identify it.
               </p>
             </div>
             <div className="flex justify-center">
@@ -203,7 +205,7 @@ export function HowToPlayPage() {
       </section>
 
       {/* CTA */}
-      <section className="border-t border-[#1F1F1A] px-6 py-16 sm:px-10 sm:py-24">
+      <section className="border-t border-[#1F1F1A] px-4 py-12 sm:px-10 sm:py-24">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-5xl">
             Ready?
@@ -211,7 +213,7 @@ export function HowToPlayPage() {
           <div className="mt-8 flex justify-center">
             <Link
               to="/create"
-              className="group inline-flex items-center gap-2 rounded-md bg-[#FF5A36] px-6 py-3 text-base font-semibold text-white transition-all hover:bg-[#ff6b4a]"
+              className="group inline-flex min-h-12 items-center gap-2 rounded-md bg-[#FF5A36] px-6 py-3 text-base font-semibold text-white transition-all hover:bg-[#ff6b4a]"
             >
               Create a room
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -221,8 +223,8 @@ export function HowToPlayPage() {
       </section>
 
       {/* footer */}
-      <footer className="border-t border-[#1F1F1A] px-6 py-7 sm:px-10">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
+      <footer className="border-t border-[#1F1F1A] px-4 py-7 sm:px-10">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2.5">
             <LogoMark />
             <span className="font-display text-sm font-semibold tracking-tight">WHO AM I?</span>

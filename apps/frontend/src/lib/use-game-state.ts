@@ -18,6 +18,7 @@ type RoomPlayerResponse = {
   avatarUrl?: string | null;
   characterReady?: boolean;
   characterConfirmed?: boolean;
+  characterName?: string | null;
   characterImageUrl?: string | null;
 };
 
@@ -181,6 +182,8 @@ function useGameStateImpl() {
               player.characterReady
             ),
 
+          characterName: player.characterName ?? undefined,
+
           characterImageUrl:
             player.characterImageUrl ??
             undefined,
@@ -251,6 +254,34 @@ function useGameStateImpl() {
     user?.id,
     loadRoom,
   ]);
+
+  // Restore persisted chat after refresh or reconnect. Merge by database id
+  // so a live socket event that arrives while this request is in flight is kept.
+  useEffect(() => {
+    if (!roomCode || !token) return;
+    let cancelled = false;
+    void fetch(`${API_URL}/rooms/${encodeURIComponent(roomCode)}/messages`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(async (response) => {
+      const data = await response.json();
+      if (!response.ok || cancelled || !Array.isArray(data.messages)) return;
+      const restored: ChatMessage[] = data.messages
+        .filter((item: any) => item.type === 'QUESTION' || item.type === 'ANSWER')
+        .map((item: any) => ({
+          id: item.id,
+          senderId: item.senderId,
+          senderName: item.sender?.username ?? 'Player',
+          text: item.message,
+          timestamp: new Date(item.createdAt).getTime(),
+        }));
+      setMessages((previous) => {
+        const merged = new Map(previous.map((message) => [message.id, message]));
+        for (const message of restored) if (!merged.has(message.id)) merged.set(message.id, message);
+        return [...merged.values()].sort((a, b) => a.timestamp - b.timestamp);
+      });
+    }).catch((error) => console.error('Failed to restore game messages:', error));
+    return () => { cancelled = true; };
+  }, [roomCode, token]);
 
   // ------------------------------------------------------------
   // Character confirmation
@@ -375,6 +406,11 @@ function useGameStateImpl() {
           'Guess result:',
           data
         );
+
+        if (typeof data.currentTurn === 'number') {
+          setCurrentTurn(data.currentTurn);
+          setTurnAction(data.currentTurn === 1 ? 'question' : 'answer');
+        }
 
         return data;
       } catch (error) {

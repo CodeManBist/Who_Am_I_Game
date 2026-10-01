@@ -12,9 +12,7 @@ import {
 import { Target } from 'lucide-react';
 
 import { LogoMark } from '@/components/game/BrandLogo';
-import { LiveBadge } from '@/components/game/LiveBadge';
 import { RoomCode } from '@/components/game/RoomCode';
-import { MysteryPhoto } from '@/components/game/MysteryPhoto';
 import {
   ChatBubble,
   TypingIndicator,
@@ -22,18 +20,13 @@ import {
 import { ChatInput } from '@/components/game/ChatInput';
 import { GameControls } from '@/components/game/GameControls';
 import { GuessModal } from '@/components/game/GuessModal';
+import { MobileMenu } from '@/components/game/MobileMenu';
 
 import { useGame } from '@/lib/game-context';
 
 import { gameSocket } from '@/services/websocket';
 
-// ------------------------------------------------------------
-// Temporary video placeholder
-//
-// We will replace this later when we add real voice/video.
-// ------------------------------------------------------------
-
-const PLAYER_B =
+const MOCK_PLAYER_VIDEO =
   'https://images.pexels.com/photos/34622355/pexels-photo-34622355.jpeg?auto=compress&cs=tinysrgb&w=500&h=650&fit=crop';
 
 export function GamePage() {
@@ -46,38 +39,12 @@ export function GamePage() {
   const game =
     useGame();
 
-  const [seconds, setSeconds] =
-    useState(42);
-
   const [guessOpen, setGuessOpen] =
     useState(false);
+  const [guessFeedback, setGuessFeedback] = useState<string | null>(null);
 
   const scrollRef =
     useRef<HTMLDivElement>(null);
-
-  // ------------------------------------------------------------
-  // Temporary UI timer
-  //
-  // This is NOT used by game logic.
-  // We can remove it later because V1 doesn't need a timer.
-  // ------------------------------------------------------------
-
-  useEffect(() => {
-    const timer =
-      window.setInterval(() => {
-        setSeconds((value) =>
-          value > 0
-            ? value - 1
-            : 0
-        );
-      }, 1000);
-
-    return () => {
-      window.clearInterval(
-        timer
-      );
-    };
-  }, []);
 
   // ------------------------------------------------------------
   // Automatically scroll chat to bottom
@@ -116,24 +83,37 @@ export function GamePage() {
     game.isSocketConnected,
   ]);
 
+  useEffect(() => gameSocket.onMessage((event) => {
+    if (event.type === 'game_finished') {
+      navigate(`/game/${roomCode}/result`, { replace: true });
+    }
+  }), [navigate, roomCode]);
+
+  // Recover if the finish event was missed during a brief disconnect.
+  useEffect(() => {
+    if (!roomCode) return;
+    const checkFinished = async () => {
+      const token = localStorage.getItem('whoami-token');
+      if (!token) return;
+      try {
+        const response = await fetch(`http://localhost:3001/api/v1/rooms/${encodeURIComponent(roomCode)}/result`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok) navigate(`/game/${roomCode}/result`, { replace: true });
+      } catch (error) {
+        console.error('Could not refresh game result:', error);
+      }
+    };
+    const interval = window.setInterval(() => void checkFinished(), 2500);
+    return () => window.clearInterval(interval);
+  }, [navigate, roomCode]);
+
   // ------------------------------------------------------------
   // Opponent image
   // ------------------------------------------------------------
 
-  const opponentImageUrl =
-    game.opponent
-      ?.characterImageUrl;
-
-  // ------------------------------------------------------------
-  // Temporary timer display
-  // ------------------------------------------------------------
-
-  const timeString =
-    `${String(
-      Math.floor(seconds / 60)
-    ).padStart(2, '0')}:${String(
-      seconds % 60
-    ).padStart(2, '0')}`;
+  const myCharacterImageUrl = game.you?.characterImageUrl;
+  const myCharacterName = game.you?.characterName;
 
   // ------------------------------------------------------------
   // Is it my turn?
@@ -235,21 +215,35 @@ export function GamePage() {
   const submitGuess = async (
     guess: string
   ) => {
-    setGuessOpen(false);
-
     const result =
       await game.submitGuess(
         guess
       );
 
-    if (result?.correct) {
+    setGuessOpen(false);
+    if (result?.gameStatus === 'FINISHED' && result.correct === true) {
       navigate(
-        `/game/${roomCode}/result`
+        `/game/${roomCode}/result`,
+        { replace: true }
       );
+    } else if (result?.correct === false && result.gameStatus === 'PLAYING') {
+      setGuessFeedback('Not quite. The game continues—keep asking questions and try again on a later turn.');
     } else {
-      console.log(
-        'Incorrect guess'
-      );
+      setGuessFeedback('Your guess could not be submitted. Please check your connection and try again.');
+    }
+  };
+
+  const leaveGame = async () => {
+    try {
+      const token = localStorage.getItem('whoami-token');
+      if (roomCode && token) {
+        await fetch(`http://localhost:3001/api/v1/rooms/${encodeURIComponent(roomCode)}/leave`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } finally {
+      navigate('/');
     }
   };
 
@@ -272,7 +266,7 @@ export function GamePage() {
             : 'Answer the question...';
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#11110F] text-[#F5F1E8]">
+    <div className="game-page-shell flex h-[100dvh] flex-col overflow-hidden bg-[#11110F] pb-[env(safe-area-inset-bottom)] text-[#F5F1E8]">
 
       {game.countdown !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -292,7 +286,7 @@ export function GamePage() {
           HEADER
       ====================================================== */}
 
-      <header className="flex h-14 items-center justify-between border-b border-[#1F1F1A] px-4 sm:px-6">
+      <header className="grid h-[calc(3.25rem+env(safe-area-inset-top))] shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#1F1F1A] px-3 pt-[env(safe-area-inset-top)] sm:h-[calc(3.5rem+env(safe-area-inset-top))] sm:gap-4 sm:px-6 sm:pt-[env(safe-area-inset-top)]">
 
         {/* Logo */}
 
@@ -306,21 +300,16 @@ export function GamePage() {
 
         {/* Game status */}
 
-        <div className="flex items-center gap-3">
-
-          <span className="font-display text-[11px] font-semibold uppercase tracking-[0.15em] text-[#9A958B]">
-            Round 01
-          </span>
-
-          <span className="font-mono text-sm tabular-nums text-[#F5F1E8]">
-            {timeString}
+        <div className="flex min-w-0 justify-center">
+          <span className="max-w-full truncate rounded-full border border-[#2A2A25] bg-[#181815] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-[#9A958B] sm:px-3 sm:text-[10px] sm:tracking-[0.12em]">
+            {game.currentTurn === null ? 'Getting ready' : isMyTurn ? 'Your turn' : 'Opponent turn'}
           </span>
 
         </div>
 
         {/* Room */}
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
 
           <RoomCode
             code={
@@ -328,7 +317,10 @@ export function GamePage() {
             }
           />
 
-          <LiveBadge />
+          <span className={`hidden rounded border px-2 py-1 text-[9px] font-semibold uppercase tracking-wide sm:inline-flex ${game.isSocketConnected ? 'border-[#8FCB9B]/25 text-[#8FCB9B]' : 'border-[#E56B6F]/25 text-[#E56B6F]'}`}>
+            {game.isSocketConnected ? 'Connected' : 'Reconnecting'}
+          </span>
+          <MobileMenu />
 
         </div>
 
@@ -338,99 +330,41 @@ export function GamePage() {
           MAIN GAME AREA
       ====================================================== */}
 
-      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
 
         {/* ====================================================
             LEFT SIDE
         ==================================================== */}
 
-        <div className="flex flex-shrink-0 flex-col items-center gap-4 overflow-y-auto border-b border-[#1F1F1A] p-4 sm:p-6 lg:flex-1 lg:border-b-0 lg:border-r">
+        <div className="game-character-panel grid shrink-0 grid-cols-1 items-start gap-y-2 border-b border-[#1F1F1A] px-3 py-2.5 sm:p-4 lg:flex lg:min-w-0 lg:flex-1 lg:flex-col lg:items-center lg:gap-5 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:p-6">
 
           {/* Label */}
 
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#FF5A36]">
-            Who are they?
+          <p className="game-character-hint text-center text-[9px] font-semibold uppercase tracking-[0.12em] text-[#FF5A36] sm:text-[10px]">
+            Your character
           </p>
 
-          {/* Opponent character */}
-
-          {opponentImageUrl ? (
-            <MysteryPhoto
-              src={
-                opponentImageUrl
-              }
-              size="md"
-              float={false}
-              rotate="-2deg"
-            />
-          ) : (
-            <div className="flex h-64 w-48 items-center justify-center rounded-lg border border-[#2A2A25] bg-[#181815] text-xs text-[#5A564F]">
-              Waiting for character...
+          <div className="flex min-w-0 flex-col items-center gap-1.5 lg:w-full lg:gap-2">
+            <div className="game-character-image flex h-16 w-12 items-center justify-center overflow-hidden rounded-lg border border-[#8FCB9B]/30 bg-[#181815] sm:h-20 sm:w-16 lg:h-28 lg:w-20">
+              {myCharacterImageUrl ? <img src={myCharacterImageUrl} alt="Your chosen character" className="h-full w-full object-cover" /> : <span className="px-2 text-center text-xs text-[#5A564F]">Loading your character…</span>}
             </div>
-          )}
-
-          {/* =================================================
-              Temporary player video placeholder
-              ================================================= */}
-
-          <div className="w-full max-w-xs">
-
-            <div className="group relative aspect-[3/4] w-full overflow-hidden rounded-lg border border-[#2A2A25] bg-[#181815] animate-drift">
-
-              <img
-                src={PLAYER_B}
-                alt="Player"
-                className="h-full w-full object-cover opacity-85"
-                style={{
-                  filter:
-                    'saturate(0.8) contrast(1.08) brightness(0.92)',
-                }}
-              />
-
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/15" />
-
-              <div
-                className="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-overlay"
-                style={{
-                  backgroundImage:
-                    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='80' height='80' filter='url(%23n)'/%3E%3C/svg%3E\")",
-                }}
-              />
-
-              {/* Player label */}
-
-              <div className="absolute left-2 top-2">
-
-                <span className="rounded bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-white/75 backdrop-blur-sm">
-                  Opponent
-                </span>
-
-              </div>
-
-              {/* Live badge */}
-
-              <div className="absolute right-2 top-2">
-                <LiveBadge />
-              </div>
-
-              {/* Connected */}
-
-              <div className="absolute bottom-2 right-2">
-
-                <span className="flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 backdrop-blur-sm">
-
-                  <span className="h-1 w-1 rounded-full bg-[#8FCB9B]" />
-
-                  <span className="text-[8px] text-white/60">
-                    connected
-                  </span>
-
-                </span>
-
-              </div>
-
+            <div className="min-w-0 max-w-full text-center">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-[#8FCB9B] sm:text-[10px]">My Character</p>
+              <p className="mt-0.5 max-w-36 truncate text-[10px] text-[#F5F1E8] sm:text-xs">{myCharacterName || 'Your secret choice'}</p>
             </div>
+          </div>
 
+          <div className="game-v2-preview mx-auto flex w-full max-w-2xl flex-col items-stretch gap-2 overflow-hidden rounded-lg border border-[#2A2A25] bg-[#181815] p-2 lg:mt-1 lg:w-full lg:max-w-none lg:p-2.5">
+            <div className="relative aspect-video w-full overflow-hidden rounded-md bg-[#11110F]">
+              <img src={MOCK_PLAYER_VIDEO} alt="Mock player video call preview for V2" className="h-full w-full object-cover opacity-70" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+              <span className="absolute bottom-1 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/90">V2 preview</span>
+            </div>
+            <div className="min-w-0 lg:hidden">
+              <p className="truncate text-[10px] font-semibold text-[#F5F1E8] sm:text-xs">Video call</p>
+              <p className="truncate text-[9px] text-[#9A958B] sm:text-[10px]">Mock preview · coming in V2</p>
+            </div>
+            <p className="hidden text-center text-[10px] font-medium text-[#9A958B] lg:block">Mock video call preview · V2</p>
           </div>
 
         </div>
@@ -439,13 +373,13 @@ export function GamePage() {
             RIGHT / CHAT SIDE
         ==================================================== */}
 
-        <div className="flex flex-1 flex-col overflow-hidden lg:max-w-md">
+        <div className="game-chat-panel flex min-h-[18rem] min-w-0 flex-1 flex-col overflow-hidden lg:min-h-0 lg:w-[min(36vw,34rem)] lg:flex-none">
 
           {/* ==================================================
               CHAT HEADER
               ================================================== */}
 
-          <div className="flex items-center justify-between border-b border-[#1F1F1A] px-4 py-2.5">
+          <div className="game-chat-header flex items-center justify-between border-b border-[#1F1F1A] px-4 py-2.5">
 
             <span className="text-xs font-semibold text-[#9A958B]">
               Game Conversation
@@ -462,7 +396,7 @@ export function GamePage() {
               TURN STATUS
               ================================================== */}
 
-          <div className="border-b border-[#1F1F1A] px-4 py-2">
+          <div className="game-turn-status border-b border-[#1F1F1A] px-4 py-2">
             {game.currentTurn === null ? (
               <span className="text-[10px] text-[#5A564F]">
                 Waiting for game to start...
@@ -480,6 +414,15 @@ export function GamePage() {
               </span>
             )}
           </div>
+
+          {guessFeedback && (
+            <div role="status" className="mx-3 mt-3 rounded-md border border-[#FF5A36]/25 bg-[#FF5A36]/10 px-3 py-2 text-xs text-[#F5F1E8] sm:mx-4">
+              <div className="flex items-start justify-between gap-3">
+                <span>{guessFeedback}</span>
+                <button type="button" className="shrink-0 text-[#9A958B] underline" onClick={() => setGuessFeedback(null)}>Dismiss</button>
+              </div>
+            </div>
+          )}
 
           {/* ==================================================
               MESSAGES
@@ -581,7 +524,7 @@ export function GamePage() {
               GAME CONTROLS
               ================================================== */}
 
-          <div className="border-t border-[#1F1F1A] p-3">
+          <div className="game-action-footer shrink-0 border-t border-[#1F1F1A] p-2 pb-3 sm:p-3">
 
             {/* Guess */}
 
@@ -589,7 +532,9 @@ export function GamePage() {
               onClick={() =>
                 setGuessOpen(true)
               }
-              className="group flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#FF5A36] text-base font-semibold text-white transition-all hover:bg-[#ff6b4a]"
+              disabled={!isMyTurn || !game.isSocketConnected}
+              title={!isMyTurn ? 'You can guess during your turn' : undefined}
+              className="group flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#FF5A36] text-base font-semibold text-white transition-all hover:bg-[#ff6b4a] disabled:cursor-not-allowed disabled:opacity-40"
             >
 
               <Target className="h-4 w-4" />
@@ -600,12 +545,10 @@ export function GamePage() {
 
             {/* Leave */}
 
-            <div className="mt-3 flex items-center justify-center">
+            <div className="game-secondary-controls mt-3 flex items-center justify-center">
 
               <GameControls
-                onLeave={() =>
-                  navigate('/')
-                }
+                onLeave={leaveGame}
               />
 
             </div>

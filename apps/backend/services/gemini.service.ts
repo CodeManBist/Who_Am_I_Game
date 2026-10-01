@@ -14,6 +14,7 @@ export interface CharacterIdentificationResult {
     fictional: boolean | null;
     occupation: string | null;
     universe: string | null;
+    aliases: string[];
   };
   confidence: number;
   reason: string | null;
@@ -125,6 +126,7 @@ For characterFacts:
 - fictional: true for fictional characters, false for recognizable real people, otherwise null.
 - occupation: known occupation or role, otherwise null.
 - universe: fictional universe/franchise for fictional characters, "Real Life" for recognizable real people, otherwise null.
+- aliases: commonly used, recognizable alternate names or nicknames that clearly refer to this same identity (for example, "Messi" and "Leo Messi" for Lionel Messi). Return an empty array when none are reliable. Do not include broad categories or ambiguous names.
 
 Return exactly this structure:
 
@@ -135,7 +137,8 @@ Return exactly this structure:
     "gender": string | null,
     "fictional": boolean | null,
     "occupation": string | null,
-    "universe": string | null
+    "universe": string | null,
+    "aliases": string[]
   },
   "confidence": number,
   "reason": string | null
@@ -178,6 +181,10 @@ Return exactly this structure:
               universe: {
                 type: ['string', 'null'],
               },
+              aliases: {
+                type: 'array',
+                items: { type: 'string' },
+              },
             },
 
             required: [
@@ -185,6 +192,7 @@ Return exactly this structure:
               'fictional',
               'occupation',
               'universe',
+              'aliases',
             ],
           },
 
@@ -225,6 +233,19 @@ Return exactly this structure:
       throw new Error('Gemini returned an invalid character response');
     }
 
+    if (!Array.isArray(result.characterFacts?.aliases)) {
+      result.characterFacts = {
+        ...result.characterFacts,
+        aliases: [],
+      };
+    } else {
+      result.characterFacts.aliases = result.characterFacts.aliases
+        .filter((alias): alias is string => typeof alias === 'string')
+        .map((alias) => alias.trim())
+        .filter(Boolean)
+        .slice(0, 12);
+    }
+
     // Keep confidence within the expected range.
     result.confidence = Math.max(
       0,
@@ -241,6 +262,7 @@ Return exactly this structure:
         fictional: null,
         occupation: null,
         universe: null,
+        aliases: [],
       };
     }
 

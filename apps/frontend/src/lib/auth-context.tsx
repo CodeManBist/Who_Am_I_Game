@@ -7,6 +7,23 @@ import {
 } from "react";
 
 const API_URL = "http://localhost:3001/api/v1";
+const REFRESH_EARLY_MS = 5 * 60 * 1000;
+
+function tokenExpiry(token: string): number | null {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const parsed = JSON.parse(atob(base64)) as { exp?: number };
+    return typeof parsed.exp === 'number' ? parsed.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function isGameSessionPath(path: string) {
+  return /^\/game\/[^/]+(?:\/result)?\/?$/.test(path) || /^\/room\/[^/]+\/countdown\/?$/.test(path);
+}
 
 type AuthUser = {
   id: string;
@@ -84,6 +101,64 @@ export function AuthProvider({
 
     setIsLoading(false);
   }, []);
+
+  // Refresh before expiry. If a refresh cannot complete while the player is
+  // in a game, preserve that session and defer the login redirect until they
+  // leave the game flow.
+  useEffect(() => {
+    if (!token) return;
+    let refreshTimer: number | undefined;
+    let expiryTimer: number | undefined;
+    const expiresAt = tokenExpiry(token);
+
+    const expireOutsideGame = () => {
+      if (isGameSessionPath(window.location.pathname)) return;
+      localStorage.removeItem('whoami-token');
+      localStorage.removeItem('whoami-user');
+      setToken(null);
+      setUser(null);
+      if (!window.location.pathname.startsWith('/auth')) {
+        const redirect = `${window.location.pathname}${window.location.search}`;
+        window.location.replace(`/auth?redirect=${encodeURIComponent(redirect)}`);
+      }
+    };
+
+    const refresh = async () => {
+      if (!expiresAt) {
+        expireOutsideGame();
+        return;
+      }
+      if (Date.now() >= expiresAt) {
+        expireOutsideGame();
+        refreshTimer = window.setTimeout(() => void refresh(), 30_000);
+        return;
+      }
+      try {
+        const response = await fetch(`${API_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json();
+        if (response.ok && typeof data.token === 'string') {
+          localStorage.setItem('whoami-token', data.token);
+          setToken(data.token);
+          return;
+        }
+      } catch (error) {
+        console.error('Session refresh failed:', error);
+      }
+      refreshTimer = window.setTimeout(() => void refresh(), Math.min(30_000, Math.max(1000, expiresAt - Date.now())));
+    };
+
+    refreshTimer = window.setTimeout(() => void refresh(), Math.max(0, (expiresAt ?? Date.now()) - Date.now() - REFRESH_EARLY_MS));
+    expiryTimer = window.setInterval(() => {
+      if (!expiresAt || Date.now() >= expiresAt) expireOutsideGame();
+    }, 5000);
+    return () => {
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+      if (expiryTimer !== undefined) window.clearInterval(expiryTimer);
+    };
+  }, [token]);
 
   /* ------------------------------------------------
      Save authentication

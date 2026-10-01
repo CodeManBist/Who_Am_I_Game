@@ -10,9 +10,8 @@ import {
 } from 'lucide-react';
 
 import { LogoMark } from '@/components/game/BrandLogo';
+import { MobileMenu } from '@/components/game/MobileMenu';
 import { RoomCode } from '@/components/game/RoomCode';
-import { ConnectionStatus } from '@/components/game/ConnectionStatus';
-import { LiveBadge } from '@/components/game/LiveBadge';
 import { useAuth } from '@/lib/auth-context';
 import { gameSocket } from '@/services/websocket';
 
@@ -251,7 +250,7 @@ export function WaitingRoomPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#11110F] text-[#F5F1E8]">
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[#11110F] text-[#F5F1E8]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-[#FF5A36]" />
 
@@ -265,7 +264,7 @@ export function WaitingRoomPage() {
 
   if (error || !room) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#11110F] px-6 text-[#F5F1E8]">
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[#11110F] px-6 text-[#F5F1E8]">
         <div className="w-full max-w-md text-center">
           <LogoMark />
 
@@ -289,14 +288,14 @@ export function WaitingRoomPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#11110F] text-[#F5F1E8]">
+    <div className="flex min-h-[100dvh] flex-col bg-[#11110F] text-[#F5F1E8]">
       {/* Header */}
       <header className="border-b border-[#1F1F1A]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 sm:px-10">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] sm:px-10 sm:py-4">
           <div className="flex items-center gap-3">
             <LogoMark />
 
-            <span className="font-display text-sm font-semibold tracking-tight">
+            <span className="hidden font-display text-sm font-semibold tracking-tight sm:inline">
               WHO AM I?
             </span>
           </div>
@@ -309,6 +308,7 @@ export function WaitingRoomPage() {
 
               Private
             </span>
+            <MobileMenu />
           </div>
         </div>
       </header>
@@ -316,7 +316,7 @@ export function WaitingRoomPage() {
       {/* Main */}
       <div className="flex flex-1 flex-col">
         {/* Room info */}
-        <div className="border-b border-[#1F1F1A] px-6 py-3 sm:px-10">
+        <div className="border-b border-[#1F1F1A] px-4 py-3 sm:px-10">
           <div className="mx-auto flex max-w-5xl items-center justify-between">
             <span className="font-mono text-xs text-[#5A564F]">
               ROOM {room.roomCode}
@@ -339,13 +339,13 @@ export function WaitingRoomPage() {
         </div>
 
         {/* Split player area */}
-        <div className="relative flex flex-1 items-stretch">
+        <div className="relative flex min-h-0 flex-1 items-stretch">
           {/* LEFT — current player */}
-          <div className="flex flex-1 flex-col items-center justify-center p-4 sm:p-8">
+          <div className="flex min-w-0 flex-1 flex-col items-center justify-center p-2 sm:p-8">
             <div className="w-full max-w-xs">
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#5A564F]">
-                  Your camera
+                <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#5A564F] sm:tracking-[0.15em]">
+                  Player preview
                 </span>
 
                 <span className="rounded bg-[#FF5A36]/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#FF5A36]">
@@ -353,7 +353,7 @@ export function WaitingRoomPage() {
                 </span>
               </div>
 
-              <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg border border-[#2A2A25] bg-[#181815] animate-drift">
+              <div className="relative aspect-[3/4] max-h-[34dvh] w-full overflow-hidden rounded-lg border border-[#2A2A25] bg-[#181815] animate-drift">
                 {camOn ? (
                   <img
                     src={currentPlayerImage}
@@ -379,32 +379,29 @@ export function WaitingRoomPage() {
                 </div>
 
                 <div className="absolute bottom-2 right-2">
-                  <LiveBadge />
+                  <span className="rounded bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/80 backdrop-blur-sm">V2 mock</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* CENTER — VS */}
-          <div className="flex items-center justify-center px-2">
-            <span className="font-display text-2xl font-bold text-[#3a3a32] sm:text-4xl">
+          <div className="flex items-center justify-center px-1 sm:px-2">
+            <span className="font-display text-base font-bold text-[#3a3a32] sm:text-4xl">
               VS
             </span>
           </div>
 
           {/* RIGHT — opponent */}
-          <div className="flex flex-1 flex-col items-center justify-center p-4 sm:p-8">
+          <div className="flex min-w-0 flex-1 flex-col items-center justify-center p-2 sm:p-8">
             <div className="w-full max-w-xs">
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#5A564F]">
-                  Opponent camera
+                <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#5A564F] sm:tracking-[0.15em]">
+                  Opponent preview
                 </span>
 
                 {opponentJoined ? (
-                  <ConnectionStatus
-                    connected
-                    label="Connected"
-                  />
+                  <span className="text-[9px] font-semibold uppercase tracking-wide text-[#8FCB9B]">Joined</span>
                 ) : (
                   <span className="text-[9px] font-semibold uppercase tracking-wide text-[#5A564F]">
                     Waiting
@@ -413,7 +410,7 @@ export function WaitingRoomPage() {
               </div>
 
               {opponentJoined ? (
-                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg border border-[#2A2A25] bg-[#181815] animate-scale-in">
+                <div className="relative aspect-[3/4] max-h-[34dvh] w-full overflow-hidden rounded-lg border border-[#2A2A25] bg-[#181815] animate-scale-in">
                   <img
                     src={opponentImage}
                     alt={opponentName}
@@ -433,11 +430,11 @@ export function WaitingRoomPage() {
                   </div>
 
                   <div className="absolute bottom-2 right-2">
-                    <LiveBadge />
+                    <span className="rounded bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/80 backdrop-blur-sm">V2 mock</span>
                   </div>
                 </div>
               ) : (
-                <div className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[#2A2A25] bg-[#181815]/50">
+                <div className="flex aspect-[3/4] max-h-[34dvh] w-full flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[#2A2A25] bg-[#181815]/50">
                   <Loader2 className="h-8 w-8 animate-spin text-[#5A564F]" />
 
                   <p className="text-xs text-[#5A564F]">
@@ -450,7 +447,7 @@ export function WaitingRoomPage() {
         </div>
 
         {/* Bottom controls */}
-        <div className="border-t border-[#1F1F1A] px-6 py-5 sm:px-10">
+        <div className="border-t border-[#1F1F1A] px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-10 sm:py-5">
           <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
             {/* Mic / Camera */}
             <div className="flex items-center gap-2">
@@ -461,7 +458,7 @@ export function WaitingRoomPage() {
                     ? 'Mute microphone'
                     : 'Unmute microphone'
                 }
-                className={`flex h-10 w-10 items-center justify-center rounded-md border transition-all ${
+                className={`flex h-11 w-11 items-center justify-center rounded-lg border transition-all ${
                   micOn
                     ? 'border-[#2A2A25] bg-[#181815] text-[#9A958B] hover:text-[#F5F1E8]'
                     : 'border-[#E56B6F]/30 bg-[#E56B6F]/10 text-[#E56B6F]'
@@ -481,7 +478,7 @@ export function WaitingRoomPage() {
                     ? 'Turn off camera'
                     : 'Turn on camera'
                 }
-                className={`flex h-10 w-10 items-center justify-center rounded-md border transition-all ${
+                className={`flex h-11 w-11 items-center justify-center rounded-lg border transition-all ${
                   camOn
                     ? 'border-[#2A2A25] bg-[#181815] text-[#9A958B] hover:text-[#F5F1E8]'
                     : 'border-[#E56B6F]/30 bg-[#E56B6F]/10 text-[#E56B6F]'
@@ -501,9 +498,9 @@ export function WaitingRoomPage() {
                 navigate(`/room/${room.roomCode}/select`)
               }
               disabled={!opponentJoined}
-              className="group inline-flex h-12 items-center gap-2 rounded-md bg-[#FF5A36] px-6 text-base font-semibold text-white transition-all hover:bg-[#ff6b4a] disabled:pointer-events-none disabled:opacity-30"
+              className="group inline-flex min-h-12 w-full max-w-sm items-center justify-center gap-2 rounded-md bg-[#FF5A36] px-4 text-sm font-semibold text-white transition-all hover:bg-[#ff6b4a] disabled:pointer-events-none disabled:opacity-30 sm:w-auto sm:px-6 sm:text-base"
             >
-              Choose your person
+              Choose your character
 
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>

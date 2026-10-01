@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Mic, Video, LogOut } from 'lucide-react';
 import { LogoMark } from '@/components/game/BrandLogo';
-import { LiveBadge } from '@/components/game/LiveBadge';
 import { MysteryPhoto } from '@/components/game/MysteryPhoto';
 import { useAuth } from '@/lib/auth-context';
+import { MobileMenu } from '@/components/game/MobileMenu';
 
 const PLAYER_A =
   'https://images.pexels.com/photos/7958715/pexels-photo-7958715.jpeg?auto=compress&cs=tinysrgb&w=600&h=800&fit=crop';
@@ -48,7 +48,7 @@ function VideoFrame({
           </span>
         </div>
         <div className="absolute right-2 top-2">
-          <LiveBadge />
+          <span className="rounded bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/80 backdrop-blur-sm">V2 preview</span>
         </div>
         <div className="absolute bottom-2 left-2 flex items-center gap-1">
           <span className="flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 backdrop-blur-sm">
@@ -56,12 +56,6 @@ function VideoFrame({
           </span>
           <span className="flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 backdrop-blur-sm">
             <Video className="h-2.5 w-2.5 text-[#8FCB9B]" />
-          </span>
-        </div>
-        <div className="absolute bottom-2 right-2">
-          <span className="flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 backdrop-blur-sm">
-            <span className="h-1 w-1 rounded-full bg-[#8FCB9B]" />
-            <span className="text-[8px] text-white/60">connected</span>
           </span>
         </div>
       </div>
@@ -72,26 +66,26 @@ function VideoFrame({
 export function LandingPage() {
   const auth = useAuth();
   return (
-    <div className="min-h-screen bg-[#11110F] text-[#F5F1E8]">
+    <div className="min-h-[100dvh] bg-[#11110F] text-[#F5F1E8]">
       {/* ── HEADER ── */}
       <header className="relative z-30">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 sm:px-10 sm:py-7">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-10 sm:py-7">
           <div className="flex items-center gap-2.5">
             <LogoMark />
-            <span className="font-display text-sm font-semibold tracking-tight">WHO AM I?</span>
+            <span className="hidden font-display text-sm font-semibold tracking-tight sm:inline">WHO AM I?</span>
           </div>
-          <nav className="flex items-center gap-5 sm:gap-8">
-            <Link to="/how-to-play" className="hidden text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8] sm:inline">
+          <nav className="hidden items-center gap-2 sm:flex sm:gap-8">
+            <Link to="/how-to-play" className="text-xs text-[#9A958B] transition-colors hover:text-[#F5F1E8] sm:text-[13px]">
               How to play
             </Link>
             {auth.isAuthenticated ? (
               <>
-                <Link to="/join" className="text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8]">
+                <Link to="/join" className="hidden text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8] sm:inline">
                   Join a room
                 </Link>
                 <Link
                   to="/create"
-                  className="group inline-flex items-center gap-1.5 rounded-md bg-[#FF5A36] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-all hover:bg-[#ff6b4a]"
+                  className="group inline-flex min-h-10 items-center gap-1 rounded-md bg-[#FF5A36] px-2.5 py-2 text-xs font-semibold text-white transition-all hover:bg-[#ff6b4a] sm:gap-1.5 sm:px-3.5 sm:py-1.5 sm:text-[13px]"
                 >
                   Create room
                   <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
@@ -107,12 +101,12 @@ export function LandingPage() {
               </>
             ) : (
               <>
-                <Link to="/auth?redirect=/join" className="text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8]">
+                <Link to="/auth?redirect=/join" className="hidden text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8] sm:inline">
                   Join a room
                 </Link>
                 <Link
                   to="/auth?redirect=/create"
-                  className="group inline-flex items-center gap-1.5 rounded-md bg-[#FF5A36] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-all hover:bg-[#ff6b4a]"
+                  className="group inline-flex min-h-10 items-center gap-1 rounded-md bg-[#FF5A36] px-2.5 py-2 text-xs font-semibold text-white transition-all hover:bg-[#ff6b4a] sm:gap-1.5 sm:px-3.5 sm:py-1.5 sm:text-[13px]"
                 >
                   Create room
                   <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
@@ -120,12 +114,13 @@ export function LandingPage() {
               </>
             )}
           </nav>
+          <MobileMenu />
         </div>
       </header>
 
       {/* ── HERO ── */}
       <section className="relative overflow-hidden">
-        <div className="mx-auto max-w-7xl px-6 pt-6 pb-20 sm:px-10 sm:pt-10 sm:pb-28">
+        <div className="mx-auto max-w-7xl px-4 pt-6 pb-16 sm:px-10 sm:pt-10 sm:pb-28">
           <div className="grid items-center gap-10 lg:grid-cols-[0.85fr_1fr] lg:gap-6">
             {/* LEFT */}
             <div className="animate-enter-up">
@@ -140,19 +135,19 @@ export function LandingPage() {
                 <span className="text-[#FF5A36]">your friend?</span>
               </h1>
               <p className="mt-5 max-w-[20rem] text-[15px] leading-relaxed text-[#9A958B]">
-                Pick a person. Keep them secret. Ask questions until you know.
+                Choose a character for yourself. Your friend chooses theirs. Ask questions and figure out who they picked.
               </p>
-              <div className="mt-7 flex items-center gap-5">
+              <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-4">
                 <Link
                   to={auth.isAuthenticated ? "/create" : "/auth?redirect=/create"}
-                  className="group inline-flex items-center gap-2 rounded-md bg-[#FF5A36] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#ff6b4a]"
+                  className="group inline-flex min-h-11 items-center gap-2 rounded-md bg-[#FF5A36] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#ff6b4a]"
                 >
                   Create a room
                   <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                 </Link>
                 <Link
                   to={auth.isAuthenticated ? "/join" : "/auth?redirect=/join"}
-                  className="text-sm font-medium text-[#9A958B] underline underline-offset-[6px] transition-colors hover:text-[#F5F1E8]"
+                  className="inline-flex min-h-11 items-center text-sm font-medium text-[#9A958B] underline underline-offset-[6px] transition-colors hover:text-[#F5F1E8]"
                 >
                   Join a room
                 </Link>
@@ -172,7 +167,7 @@ export function LandingPage() {
                 <div className="mt-4 flex items-center justify-center gap-3">
                   <div className="h-px w-8 bg-[#3a3a32]" />
                   <span className="font-display text-[10px] font-semibold uppercase tracking-[0.3em] text-[#5A564F]">
-                    Face to face
+                    Your character stays secret
                   </span>
                   <div className="h-px w-8 bg-[#3a3a32]" />
                 </div>
@@ -183,7 +178,7 @@ export function LandingPage() {
       </section>
 
       {/* ── HOW IT WORKS ── */}
-      <section className="border-t border-[#1F1F1A] px-6 py-14 sm:px-10 sm:py-20">
+      <section className="border-t border-[#1F1F1A] px-4 py-12 sm:px-10 sm:py-20">
         <div className="mx-auto max-w-4xl">
           <div className="grid gap-8 sm:grid-cols-3 sm:gap-12">
             {[
@@ -205,7 +200,7 @@ export function LandingPage() {
       </section>
 
       {/* ── GAME PREVIEW ── */}
-      <section className="px-6 pb-20 sm:px-10 sm:pb-28">
+      <section className="px-4 pb-16 sm:px-10 sm:pb-28">
         <div className="mx-auto max-w-5xl">
           <p className="mb-5 text-center text-[11px] font-semibold uppercase tracking-[0.28em] text-[#4a463f]">
             What it looks like
@@ -216,21 +211,21 @@ export function LandingPage() {
               <div className="flex items-center gap-2.5">
                 <LogoMark size={16} />
                 <span className="font-display text-[11px] font-semibold">WHO AM I?</span>
-                <span className="ml-1 font-mono text-[10px] text-[#4a463f]">K7Q-29P</span>
+                <span className="ml-1 hidden font-mono text-[10px] text-[#4a463f] sm:inline">K7Q-29P</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <span className="rounded bg-[#FF5A36]/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#FF5A36]">
                   Your turn
                 </span>
-                <span className="font-mono text-[11px] text-[#9A958B]">00:42</span>
-                <LiveBadge />
+                <span className="hidden font-mono text-[11px] text-[#9A958B] sm:inline">00:42</span>
+                <span className="hidden rounded border border-[#2A2A25] px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#9A958B] sm:inline-flex">V2 preview</span>
               </div>
             </div>
             {/* preview body */}
-            <div className="flex">
-              <div className="flex-1 border-r border-[#2A2A25] p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row">
+              <div className="w-full min-w-0 flex-1 p-4 sm:w-auto sm:border-r sm:border-[#2A2A25] sm:p-6">
                 <p className="mb-3 text-center text-[9px] font-semibold uppercase tracking-[0.22em] text-[#FF5A36]">
-                  Who are they?
+                  Opponent&apos;s character
                 </p>
                 <div className="mx-auto mb-4 w-24 sm:w-28">
                   <div
@@ -256,12 +251,12 @@ export function LandingPage() {
                     <span className="rounded bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold text-white/80 backdrop-blur-sm">Rahul</span>
                   </div>
                   <div className="absolute bottom-2 right-2">
-                    <LiveBadge />
+                    <span className="rounded bg-black/60 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/80 backdrop-blur-sm">V2 mock</span>
                   </div>
                 </div>
               </div>
               {/* chat */}
-              <div className="hidden w-56 flex-col sm:flex lg:w-64">
+              <div className="hidden min-h-72 shrink-0 flex-col sm:flex sm:w-52 lg:w-64">
                 <div className="border-b border-[#2A2A25] px-4 py-2.5">
                   <span className="text-[11px] font-semibold text-[#9A958B]">Game Chat</span>
                 </div>
@@ -302,7 +297,7 @@ export function LandingPage() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="border-t border-[#1F1F1A] px-6 py-7 sm:px-10">
+      <footer className="border-t border-[#1F1F1A] px-4 py-7 sm:px-10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2.5">
             <LogoMark />

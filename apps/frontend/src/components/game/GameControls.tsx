@@ -10,7 +10,7 @@ export function GameControls({ onLeave }: { onLeave: () => void }) {
       <button
         onClick={() => setMicOn(!micOn)}
         aria-label={micOn ? 'Mute microphone' : 'Unmute microphone'}
-        className={`flex h-9 w-9 items-center justify-center rounded-md border transition-all ${
+        className={`flex h-11 w-11 items-center justify-center rounded-lg border transition-all ${
           micOn
             ? 'border-[#2A2A25] bg-[#181815] text-[#9A958B] hover:text-[#F5F1E8]'
             : 'border-[#E56B6F]/30 bg-[#E56B6F]/10 text-[#E56B6F]'
@@ -21,7 +21,7 @@ export function GameControls({ onLeave }: { onLeave: () => void }) {
       <button
         onClick={() => setCamOn(!camOn)}
         aria-label={camOn ? 'Turn off camera' : 'Turn on camera'}
-        className={`flex h-9 w-9 items-center justify-center rounded-md border transition-all ${
+        className={`flex h-11 w-11 items-center justify-center rounded-lg border transition-all ${
           camOn
             ? 'border-[#2A2A25] bg-[#181815] text-[#9A958B] hover:text-[#F5F1E8]'
             : 'border-[#E56B6F]/30 bg-[#E56B6F]/10 text-[#E56B6F]'
@@ -32,7 +32,7 @@ export function GameControls({ onLeave }: { onLeave: () => void }) {
       <button
         onClick={onLeave}
         aria-label="Leave game"
-        className="flex h-9 items-center gap-1.5 rounded-md border border-[#E56B6F]/30 bg-[#E56B6F]/10 px-3 text-sm font-medium text-[#E56B6F] transition-all hover:bg-[#E56B6F]/20"
+        className="flex h-11 items-center gap-1.5 rounded-lg border border-[#E56B6F]/30 bg-[#E56B6F]/10 px-3 text-sm font-medium text-[#E56B6F] transition-all hover:bg-[#E56B6F]/20"
       >
         <PhoneOff className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">Leave</span>

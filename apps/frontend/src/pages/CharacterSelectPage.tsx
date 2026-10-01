@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { LogoMark } from '@/components/game/BrandLogo';
+import { MobileMenu } from '@/components/game/MobileMenu';
 import { useAuth } from '@/lib/auth-context';
 import { gameSocket } from '@/services/websocket';
 
@@ -39,7 +40,6 @@ export function CharacterSelectPage() {
   const [confirmed, setConfirmed] = useState(false);
 
   const [opponentReady, setOpponentReady] = useState(false);
-  const [myPosition, setMyPosition] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   /*
@@ -134,12 +134,10 @@ const checkRoomReadyState = async () => {
       (player: {
         userId: string;
         position?: number;
+        characterConfirmed?: boolean;
       }) => player.userId === auth.user?.id
     );
-    
-    if (currentPlayer?.position) {
-      setMyPosition(currentPlayer.position);
-    }
+    if (currentPlayer?.characterConfirmed) setConfirmed(true);
 
     const opponent = players.find(
       (player: {
@@ -152,9 +150,6 @@ const checkRoomReadyState = async () => {
       setOpponentReady(true);
     }
 
-    if (opponent?.characterReady) {
-      setOpponentReady(true);
-    }
   } catch (error) {
     console.error(
       'Failed to check character confirmation:',
@@ -165,6 +160,8 @@ const checkRoomReadyState = async () => {
 
   useEffect(() => {
     checkRoomReadyState();
+    const interval = window.setInterval(checkRoomReadyState, 3000);
+    return () => window.clearInterval(interval);
   }, [roomCode, auth.token, auth.user?.id]);
 
   /*
@@ -398,25 +395,11 @@ const checkRoomReadyState = async () => {
       return;
     }
   
-    const timer = window.setTimeout(() => {
-      // Only the room creator starts the server countdown.
-      if (myPosition === 1) {
-        gameSocket.send({
-          type: 'start_game',
-          roomCode,
-        });
-      }
-  
-      navigate(`/room/${roomCode}/countdown`);
-    }, 1200);
-  
-    return () => {
-      window.clearTimeout(timer);
-    };
+    // Enter immediately so neither client loses the first countdown second.
+    navigate(`/room/${roomCode}/countdown`);
   }, [
     confirmed,
     opponentReady,
-    myPosition,
     navigate,
     roomCode,
   ]);
@@ -438,9 +421,14 @@ const checkRoomReadyState = async () => {
       )
     : 0;
 
+  const acceptedAliases = Array.isArray(character?.facts?.aliases)
+    ? character.facts.aliases.filter((alias): alias is string => typeof alias === 'string' && alias.trim().length > 0)
+    : [];
+
   if (confirmed) {
     return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#11110F] text-[#F5F1E8]">
+      <div className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-[#11110F] text-[#F5F1E8]">
+        <div className="absolute right-4 top-[calc(env(safe-area-inset-top)+0.75rem)] z-20 sm:right-6"><MobileMenu /></div>
         <div className="absolute left-1/2 top-1/2 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8FCB9B]/8 blur-3xl" />
 
         <div className="relative text-center animate-scale-in">
@@ -473,37 +461,38 @@ const checkRoomReadyState = async () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#11110F] text-[#F5F1E8]">
+    <div className="min-h-[100dvh] bg-[#11110F] text-[#F5F1E8]">
       {/* Header */}
       <header className="border-b border-[#1F1F1A]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 sm:px-10">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] sm:px-10 sm:py-4">
           <div className="flex items-center gap-3">
             <LogoMark />
 
-            <span className="font-display text-sm font-semibold tracking-tight">
+            <span className="hidden font-display text-sm font-semibold tracking-tight sm:inline">
               WHO AM I?
             </span>
           </div>
 
-          <button
-            onClick={() =>
-              navigate(`/room/${roomCode}`)
-            }
-            className="inline-flex items-center gap-1.5 text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8]"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to room
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => navigate(`/room/${roomCode}`)}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-[12px] text-[#9A958B] transition-colors hover:bg-[#181815] hover:text-[#F5F1E8] sm:px-2.5 sm:text-[13px]"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to room
+            </button>
+            <MobileMenu />
+          </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-4xl px-6 py-10 sm:px-10 sm:py-14">
+      <div className="mx-auto w-full max-w-4xl px-4 py-7 sm:px-10 sm:py-14">
         <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
           Pick someone they know.
         </h1>
 
         <p className="mt-2 text-sm text-[#9A958B]">
-          Upload a person or character your friend can figure out by asking questions.
+          Choose your character. Your opponent will try to figure out who you picked.
         </p>
 
         {/* Hidden file input */}
@@ -521,7 +510,7 @@ const checkRoomReadyState = async () => {
             type="button"
             onClick={openFilePicker}
             disabled={identifying}
-            className="group relative w-full overflow-hidden rounded-lg border border-dashed border-[#2A2A25] bg-[#181815] p-6 transition-all hover:border-[#FF5A36]/40 hover:bg-[#211F1B] disabled:pointer-events-none disabled:opacity-60"
+            className="group relative min-h-20 w-full overflow-hidden rounded-lg border border-dashed border-[#2A2A25] bg-[#181815] p-4 transition-all hover:border-[#FF5A36]/40 hover:bg-[#211F1B] disabled:pointer-events-none disabled:opacity-60 sm:p-6"
           >
             <div className="flex items-center justify-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#211F1B] ring-1 ring-[#2A2A25] transition-all group-hover:bg-[#FF5A36]/10 group-hover:ring-[#FF5A36]/30">
@@ -626,6 +615,13 @@ const checkRoomReadyState = async () => {
                       </span>
                     </div>
 
+                    {acceptedAliases.length > 0 && (
+                      <p className="text-xs leading-relaxed text-[#9A958B]">
+                        Guesses accepted: <span className="text-[#F5F1E8]">{character.name}</span>
+                        {acceptedAliases.map((alias) => `, ${alias}`).join('')}
+                      </p>
+                    )}
+
                     {/* Correct confidence percentage */}
                     <div>
                       <div className="mb-1.5 flex items-center justify-between">
@@ -655,7 +651,7 @@ const checkRoomReadyState = async () => {
                   <button
                     onClick={chooseAnother}
                     disabled={identifying}
-                    className="inline-flex items-center justify-center gap-2 rounded-md border border-[#2A2A25] bg-[#181815] px-4 py-2 text-sm font-medium text-[#F5F1E8] transition-all hover:border-[#3a3a32] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-[#2A2A25] bg-[#181815] px-4 py-2 text-sm font-medium text-[#F5F1E8] transition-all hover:border-[#3a3a32] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <ImageIcon className="h-4 w-4" />
                     Choose another
@@ -664,7 +660,7 @@ const checkRoomReadyState = async () => {
                   <button
                     onClick={confirm}
                     disabled={!character || identifying}
-                    className="group inline-flex items-center justify-center gap-2 rounded-md bg-[#FF5A36] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#ff6b4a] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="group inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#FF5A36] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#ff6b4a] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Check className="h-4 w-4" />
                     Lock it in

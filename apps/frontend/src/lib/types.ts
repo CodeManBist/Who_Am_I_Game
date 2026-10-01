@@ -15,6 +15,7 @@ export type Player = {
 
   characterConfirmed: boolean;
   characterReady: boolean;
+  characterName?: string | null;
   characterImageUrl?: string | null;
 };
 

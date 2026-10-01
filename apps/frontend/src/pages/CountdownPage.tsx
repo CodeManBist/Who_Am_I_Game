@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { Countdown } from '@/components/game/Countdown';
 import { gameSocket } from '@/services/websocket';
 import { useAuth } from '@/lib/auth-context';
+import { MobileMenu } from '@/components/game/MobileMenu';
 
 export function CountdownPage() {
   const { roomCode } = useParams();
@@ -11,11 +12,23 @@ export function CountdownPage() {
   const auth = useAuth();
 
   const [count, setCount] = useState<number | null>(null);
+  const countdownDeadlineRef = useRef<number | null>(null);
+  const hasJoinedRoom = useRef(false);
 
   useEffect(() => {
     if (!roomCode || !auth.token) {
       return;
     }
+
+    const joinRoom = () => {
+      if (hasJoinedRoom.current) {
+        return;
+      }
+
+      if (gameSocket.send({ type: 'join_game', roomCode })) {
+        hasJoinedRoom.current = true;
+      }
+    };
 
     const unsubscribe = gameSocket.onMessage((event) => {
       console.log(
@@ -24,6 +37,10 @@ export function CountdownPage() {
       );
 
       if (event.type === 'game_countdown') {
+        if (typeof event.countdownEndsAt === 'number') {
+          countdownDeadlineRef.current = event.countdownEndsAt;
+        }
+
         const seconds = event.seconds;
 
         if (typeof seconds === 'number') {
@@ -33,15 +50,51 @@ export function CountdownPage() {
         return;
       }
 
+      if (event.type === 'room_state') {
+        if (event.status === 'PLAYING') {
+          navigate(`/game/${roomCode}`, { replace: true });
+          return;
+        }
+
+        if (typeof event.countdownEndsAt === 'number') {
+          countdownDeadlineRef.current = event.countdownEndsAt;
+          const remaining = event.countdownEndsAt - Date.now();
+          setCount(remaining > 0 ? Math.min(3, Math.ceil(remaining / 1000)) : 0);
+        }
+
+        return;
+      }
+
       if (event.type === 'game_started') {
+        countdownDeadlineRef.current = null;
         setCount(0);
       }
     });
 
+    if (gameSocket.isConnected) {
+      joinRoom();
+    }
+
     return () => {
       unsubscribe();
+      hasJoinedRoom.current = false;
     };
-  }, [roomCode, auth.token]);
+  }, [roomCode, auth.token, navigate]);
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const deadline = countdownDeadlineRef.current;
+      if (!deadline) {
+        return;
+      }
+
+      const remaining = deadline - Date.now();
+      setCount(remaining > 0 ? Math.min(3, Math.ceil(remaining / 1000)) : 0);
+    };
+
+    const timer = window.setInterval(updateCountdown, 50);
+    return () => window.clearInterval(timer);
+  }, []);
 
   /*
    * Connect to WebSocket if it isn't already connected.
@@ -70,7 +123,8 @@ export function CountdownPage() {
    * Waiting for the server to start the countdown.
    */
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#11110F] px-6 text-[#F5F1E8]">
+    <div className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-[#11110F] px-6 text-[#F5F1E8]">
+      <div className="absolute right-4 top-[calc(env(safe-area-inset-top)+0.75rem)] z-20 sm:right-6"><MobileMenu /></div>
       <div className="absolute left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8FCB9B]/8 blur-3xl" />
 
       <div className="relative text-center animate-scale-in">

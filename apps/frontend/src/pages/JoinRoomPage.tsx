@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 
 import { LogoMark } from '@/components/game/BrandLogo';
+import { MobileMenu } from '@/components/game/MobileMenu';
 import { useAuth } from '@/lib/auth-context';
 
 const API_URL = 'http://localhost:3001/api/v1';
@@ -90,31 +91,34 @@ export function JoinRoomPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#11110F] text-[#F5F1E8]">
+    <div className="flex min-h-[100dvh] flex-col bg-[#11110F] text-[#F5F1E8]">
       <header className="border-b border-[#1F1F1A]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 sm:px-10">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-10 sm:py-5">
           <button
             onClick={() => navigate('/')}
             className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
           >
             <LogoMark />
 
-            <span className="font-display text-sm font-semibold tracking-tight">
+            <span className="hidden font-display text-sm font-semibold tracking-tight sm:inline">
               WHO AM I?
             </span>
           </button>
 
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-1.5 text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8]"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-[#9A958B] transition-colors hover:bg-[#181815] hover:text-[#F5F1E8]"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back
+            </button>
+            <MobileMenu />
+          </div>
         </div>
       </header>
 
-      <div className="flex flex-1 items-center justify-center px-6 py-12">
+      <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
         <div className="w-full max-w-md animate-enter-up">
           <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Someone invited you.

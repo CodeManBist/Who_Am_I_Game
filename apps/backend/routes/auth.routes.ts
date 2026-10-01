@@ -126,6 +126,22 @@ authRouter.post("/login", async (req: Request, res: Response) => {
   }
 });
 
+// Renew a still-valid access token before its expiry so active games do not
+// lose their authenticated HTTP or WebSocket connection mid-session.
+authRouter.post("/refresh", authenticateToken, async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) return res.status(401).json({ error: "User not found" });
+    const token = sign({ userId: user.id }, JWT_SECRET, { expiresIn: "1h" });
+    return res.status(200).json({ token });
+  } catch (error) {
+    console.error("Token refresh error:", error);
+    return res.status(500).json({ error: "Could not refresh session" });
+  }
+});
+
 authRouter.get("/me", authenticateToken, async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 

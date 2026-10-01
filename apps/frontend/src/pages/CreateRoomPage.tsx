@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   ArrowLeft,
-  UserCircle,
   Users,
   Loader2,
+  Check,
+  Copy,
 } from 'lucide-react';
 
 import { LogoMark } from '@/components/game/BrandLogo';
+import { MobileMenu } from '@/components/game/MobileMenu';
 import { RoomCode } from '@/components/game/RoomCode';
 import { ConnectionStatus } from '@/components/game/ConnectionStatus';
 import { useAuth } from '@/lib/auth-context';
@@ -24,6 +26,7 @@ export function CreateRoomPage() {
   const [roomCode, setRoomCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
 
   const create = async () => {
     if (!name.trim()) return;
@@ -104,6 +107,8 @@ export function CreateRoomPage() {
 
     try {
       await navigator.clipboard.writeText(roomCode);
+      setCopied('code');
+      window.setTimeout(() => setCopied(null), 1800);
     } catch (error) {
       console.error('Failed to copy room code:', error);
     }
@@ -117,6 +122,8 @@ export function CreateRoomPage() {
 
     try {
       await navigator.clipboard.writeText(inviteLink);
+      setCopied('link');
+      window.setTimeout(() => setCopied(null), 1800);
     } catch (error) {
       console.error('Failed to copy invite link:', error);
     }
@@ -124,27 +131,30 @@ export function CreateRoomPage() {
 
   if (created) {
     return (
-      <div className="flex min-h-screen flex-col bg-[#11110F] text-[#F5F1E8]">
+      <div className="flex min-h-[100dvh] flex-col bg-[#11110F] text-[#F5F1E8]">
         <header className="border-b border-[#1F1F1A]">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 sm:px-10">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-10 sm:py-5">
             <div className="flex items-center gap-2.5">
               <LogoMark />
 
-              <span className="font-display text-sm font-semibold tracking-tight">
+              <span className="hidden font-display text-sm font-semibold tracking-tight sm:inline">
                 WHO AM I?
               </span>
             </div>
 
-            <button
-              onClick={() => navigate('/')}
-              className="text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8]"
-            >
-              Leave room
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => navigate('/')}
+                className="min-h-11 rounded-lg px-2.5 text-[13px] text-[#9A958B] transition-colors hover:bg-[#181815] hover:text-[#F5F1E8]"
+              >
+                Leave room
+              </button>
+              <MobileMenu />
+            </div>
           </div>
         </header>
 
-        <div className="flex flex-1 items-center justify-center px-6 py-12">
+        <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
           <div className="w-full max-w-md text-center animate-enter-up">
             <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#FF5A36]">
               Your room
@@ -157,41 +167,52 @@ export function CreateRoomPage() {
               />
             </div>
 
-            <p className="mb-8 text-sm text-[#9A958B]">
-              Share this with one friend.
+            <p className="mx-auto mb-2 max-w-sm text-sm text-[#9A958B]">
+              This game needs two players. Share the invite link and wait for your friend to join before choosing characters.
             </p>
 
-            <div className="mb-8 flex justify-center gap-3">
+            <p className="mb-8 text-xs text-[#5A564F]">
+              They can open the link on any phone or browser.
+            </p>
+
+            <div className="mb-8 flex flex-col justify-center gap-2 sm:flex-row sm:gap-3">
               <button
                 onClick={copyRoomCode}
-                className="inline-flex items-center gap-2 rounded-md border border-[#2A2A25] bg-[#181815] px-4 py-2.5 text-sm font-medium text-[#F5F1E8] transition-all hover:border-[#3a3a32]"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-[#2A2A25] bg-[#181815] px-4 py-2.5 text-sm font-medium text-[#F5F1E8] transition-all hover:border-[#3a3a32] sm:w-auto"
               >
-                Copy room code
+                {copied === 'code' ? <Check className="h-4 w-4 text-[#8FCB9B]" /> : <Copy className="h-4 w-4" />}
+                {copied === 'code' ? 'Copied' : 'Copy room code'}
               </button>
 
               <button
                 onClick={copyInviteLink}
-                className="inline-flex items-center gap-2 rounded-md border border-[#2A2A25] bg-[#181815] px-4 py-2.5 text-sm font-medium text-[#F5F1E8] transition-all hover:border-[#3a3a32]"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-[#2A2A25] bg-[#181815] px-4 py-2.5 text-sm font-medium text-[#F5F1E8] transition-all hover:border-[#3a3a32] sm:w-auto"
               >
-                Copy invite link
+                {copied === 'link' ? <Check className="h-4 w-4 text-[#8FCB9B]" /> : <Copy className="h-4 w-4" />}
+                {copied === 'link' ? 'Copied' : 'Copy invite link'}
               </button>
             </div>
 
-            <div className="flex items-center justify-center gap-2 rounded-lg border border-[#1F1F1A] bg-[#181815] px-4 py-3">
+            <div className="flex items-start justify-center gap-3 rounded-lg border border-[#1F1F1A] bg-[#181815] px-4 py-3 text-left">
               <ConnectionStatus
                 connected={auth.isAuthenticated}
               />
 
-              <span className="text-sm text-[#9A958B]">
-                Waiting for player 2...
-              </span>
+              <div>
+                <p className="text-sm text-[#9A958B]">
+                  Waiting for player 2
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-[#5A564F]">
+                  The character selection unlocks as soon as your friend joins this room.
+                </p>
+              </div>
             </div>
 
             <button
               onClick={() =>
                 navigate(`/room/${roomCode}`)
               }
-              className="group mt-8 inline-flex items-center gap-2 rounded-md bg-[#FF5A36] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#ff6b4a]"
+              className="group mt-8 inline-flex min-h-11 items-center gap-2 rounded-md bg-[#FF5A36] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#ff6b4a]"
             >
               Enter room
 
@@ -204,31 +225,34 @@ export function CreateRoomPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#11110F] text-[#F5F1E8]">
+    <div className="flex min-h-[100dvh] flex-col bg-[#11110F] text-[#F5F1E8]">
       <header className="border-b border-[#1F1F1A]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 sm:px-10">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-10 sm:py-5">
           <button
             onClick={() => navigate('/')}
             className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
           >
             <LogoMark />
 
-            <span className="font-display text-sm font-semibold tracking-tight">
+            <span className="hidden font-display text-sm font-semibold tracking-tight sm:inline">
               WHO AM I?
             </span>
           </button>
 
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-1.5 text-[13px] text-[#9A958B] transition-colors hover:text-[#F5F1E8]"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-[#9A958B] transition-colors hover:bg-[#181815] hover:text-[#F5F1E8]"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back
+            </button>
+            <MobileMenu />
+          </div>
         </div>
       </header>
 
-      <div className="flex flex-1 items-center justify-center px-6 py-12">
+      <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
         <div className="w-full max-w-md animate-enter-up">
           <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Let's get a room ready.
@@ -255,22 +279,6 @@ export function CreateRoomPage() {
                 className="h-12 w-full rounded-md border border-[#2A2A25] bg-[#181815] px-4 text-base text-[#F5F1E8] placeholder:text-[#5A564F] transition-colors focus:border-[#FF5A36]/50 disabled:cursor-not-allowed disabled:opacity-50"
                 autoFocus
               />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.15em] text-[#5A564F]">
-                Avatar (optional)
-              </label>
-
-              <div className="flex items-center gap-3 rounded-md border border-dashed border-[#2A2A25] p-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#211F1B]">
-                  <UserCircle className="h-6 w-6 text-[#5A564F]" />
-                </div>
-
-                <p className="text-sm text-[#5A564F]">
-                  Click to upload an avatar
-                </p>
-              </div>
             </div>
 
             {error && (

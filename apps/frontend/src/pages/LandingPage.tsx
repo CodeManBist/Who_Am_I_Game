@@ -1,25 +1,15 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Mic, Video, LogOut } from 'lucide-react';
 import { LogoMark } from '@/components/game/BrandLogo';
-import { MysteryPhoto } from '@/components/game/MysteryPhoto';
 import { useAuth } from '@/lib/auth-context';
 import { MobileMenu } from '@/components/game/MobileMenu';
 
-const PLAYER_A =
-  'https://images.pexels.com/photos/7958715/pexels-photo-7958715.jpeg?auto=compress&cs=tinysrgb&w=600&h=800&fit=crop';
-const PLAYER_B =
-  'https://images.pexels.com/photos/34622355/pexels-photo-34622355.jpeg?auto=compress&cs=tinysrgb&w=600&h=800&fit=crop';
-const MYSTERY =
-  'https://images.pexels.com/photos/4209126/pexels-photo-4209126.jpeg?auto=compress&cs=tinysrgb&w=500&h=650&fit=crop';
-
 function VideoFrame({
-  src,
   label,
   micOn = true,
   delay = '0s',
   rotate = '0deg',
 }: {
-  src: string;
   label: string;
   micOn?: boolean;
   delay?: string;
@@ -28,12 +18,10 @@ function VideoFrame({
   return (
     <div style={{ animation: `drift 10s ease-in-out infinite ${delay}`, transform: `rotate(${rotate})` }}>
       <div className="group relative aspect-[3/4] w-full overflow-hidden rounded-md border border-[#2A2A25] bg-[#181815]">
-        <img
-          src={src}
-          alt={label}
-          className="h-full w-full object-cover opacity-85 transition-all duration-700 group-hover:opacity-95 group-hover:scale-[1.03]"
-          style={{ filter: 'saturate(0.8) contrast(1.08) brightness(0.92)' }}
-        />
+        <video autoPlay muted playsInline className="h-full w-full object-cover opacity-70" aria-label={`${label} live video`} />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Video className="h-6 w-6 text-[#5A564F]" />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/15" />
         <div
           className="absolute inset-0 opacity-[0.04] mix-blend-overlay pointer-events-none"
@@ -48,7 +36,7 @@ function VideoFrame({
           </span>
         </div>
         <div className="absolute right-2 top-2">
-          <span className="rounded bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/80 backdrop-blur-sm">V2 preview</span>
+          <span className="rounded bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/80 backdrop-blur-sm">Live video</span>
         </div>
         <div className="absolute bottom-2 left-2 flex items-center gap-1">
           <span className="flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 backdrop-blur-sm">
@@ -158,10 +146,12 @@ export function LandingPage() {
             <div className="relative animate-enter-up" style={{ animationDelay: '0.12s', opacity: 0 }}>
               <div className="relative mx-auto max-w-lg">
                 <div className="relative grid grid-cols-2 gap-2.5 sm:gap-4">
-                  <VideoFrame src={PLAYER_A} label="Player 01" micOn delay="0s" rotate="0.5deg" />
-                  <VideoFrame src={PLAYER_B} label="Player 02" micOn={false} delay="2s" rotate="-0.5deg" />
+                  <VideoFrame label="Player 01" micOn delay="0s" rotate="0.5deg" />
+                  <VideoFrame label="Player 02" micOn={false} delay="2s" rotate="-0.5deg" />
                   <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
-                    <MysteryPhoto src={MYSTERY} size="lg" />
+                    <div className="flex h-24 w-20 items-center justify-center rounded-lg border border-[#8FCB9B]/30 bg-[#211F1B] text-4xl font-bold text-white/85">
+                      ?
+                    </div>
                   </div>
                 </div>
                 <div className="mt-4 flex items-center justify-center gap-3">
@@ -211,14 +201,13 @@ export function LandingPage() {
               <div className="flex items-center gap-2.5">
                 <LogoMark size={16} />
                 <span className="font-display text-[11px] font-semibold">WHO AM I?</span>
-                <span className="ml-1 hidden font-mono text-[10px] text-[#4a463f] sm:inline">K7Q-29P</span>
+                <span className="ml-1 hidden font-mono text-[10px] text-[#4a463f] sm:inline">LIVE ROOM</span>
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
                 <span className="rounded bg-[#FF5A36]/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#FF5A36]">
                   Your turn
                 </span>
-                <span className="hidden font-mono text-[11px] text-[#9A958B] sm:inline">00:42</span>
-                <span className="hidden rounded border border-[#2A2A25] px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#9A958B] sm:inline-flex">V2 preview</span>
+                <span className="hidden font-mono text-[11px] text-[#9A958B] sm:inline">LIVE</span>
               </div>
             </div>
             {/* preview body */}
@@ -233,7 +222,7 @@ export function LandingPage() {
                     style={{ transform: 'rotate(-2.5deg)', filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.4))' }}
                   >
                     <div className="relative aspect-[4/5] overflow-hidden">
-                      <img src={MYSTERY} alt="Mystery" className="h-full w-full object-cover" style={{ filter: 'sepia(0.35) contrast(1.12) brightness(0.88)' }} />
+                      <div className="h-full w-full bg-[#211F1B]" />
                       <div className="absolute inset-0 bg-black/35" />
                       <div className="absolute inset-0 flex items-center justify-center">
                         <span className="font-display text-4xl font-bold text-white/85">?</span>
@@ -245,13 +234,13 @@ export function LandingPage() {
                   </div>
                 </div>
                 <div className="relative aspect-video overflow-hidden rounded-md border border-[#2A2A25]">
-                  <img src={PLAYER_B} alt="Opponent" className="h-full w-full object-cover opacity-85" style={{ filter: 'saturate(0.8) contrast(1.08) brightness(0.92)' }} />
+                  <video autoPlay muted playsInline className="h-full w-full object-cover opacity-70" aria-label="Opponent live video" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Video className="h-5 w-5 text-[#5A564F]" />
+                  </div>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
                   <div className="absolute bottom-2 left-2">
-                    <span className="rounded bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold text-white/80 backdrop-blur-sm">Rahul</span>
-                  </div>
-                  <div className="absolute bottom-2 right-2">
-                    <span className="rounded bg-black/60 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/80 backdrop-blur-sm">V2 mock</span>
+                    <span className="rounded bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold text-white/80 backdrop-blur-sm">Opponent</span>
                   </div>
                 </div>
               </div>
@@ -261,23 +250,9 @@ export function LandingPage() {
                   <span className="text-[11px] font-semibold text-[#9A958B]">Game Chat</span>
                 </div>
                 <div className="flex-1 space-y-2.5 px-4 py-4">
-                  {[
-                    { name: 'Sagar', text: 'Is your person a footballer?', you: true },
-                    { name: 'Rahul', text: 'Yeah 😂', you: false },
-                    { name: 'Sagar', text: 'Did they play in Spain?', you: true },
-                    { name: 'Rahul', text: 'Yes.', you: false },
-                    { name: 'Sagar', text: 'Are they from Argentina?', you: true },
-                    { name: 'Rahul', text: '...', you: false },
-                  ].map((m, i) => (
-                    <div key={i} className={`flex ${m.you ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] ${m.you ? 'text-right' : ''}`}>
-                        {!m.you && <p className="mb-0.5 text-[9px] font-medium text-[#FF5A36]">{m.name}</p>}
-                        <div className={`inline-block rounded-md px-2.5 py-1.5 text-[11px] leading-snug ${m.you ? 'bg-[#FF5A36] text-white' : 'bg-[#211F1B] text-[#d5d0c7]'}`}>
-                          {m.text}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                  <div className="flex h-full items-center justify-center text-center text-[11px] text-[#5A564F]">
+                    Live questions and answers appear here when the room starts.
+                  </div>
                 </div>
                 <div className="border-t border-[#2A2A25] p-3">
                   <div className="mb-2 flex items-center gap-2">

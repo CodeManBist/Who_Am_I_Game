@@ -13,15 +13,10 @@ import { LogoMark } from '@/components/game/BrandLogo';
 import { MobileMenu } from '@/components/game/MobileMenu';
 import { RoomCode } from '@/components/game/RoomCode';
 import { useAuth } from '@/lib/auth-context';
+import { useWebRTC } from '@/lib/webrtc-context';
 import { gameSocket } from '@/services/websocket';
 
 const API_URL = 'http://localhost:3001/api/v1';
-
-const PLAYER_A =
-  'https://images.pexels.com/photos/7958715/pexels-photo-7958715.jpeg?auto=compress&cs=tinysrgb&w=500&h=650&fit=crop';
-
-const PLAYER_B =
-  'https://images.pexels.com/photos/34622355/pexels-photo-34622355.jpeg?auto=compress&cs=tinysrgb&w=500&h=650&fit=crop';
 
 type RoomPlayer = {
   id: string;
@@ -56,6 +51,34 @@ export function WaitingRoomPage() {
 
   // Prevent sending join_game multiple times
   const hasJoinedSocketRoom = useRef(false);
+
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const { localStream, remoteStream, initialize } = useWebRTC();
+  const currentRoomUser = room?.players.find(
+    (player) => player.userId === auth.user?.id
+  );
+  const currentUserPosition = currentRoomUser?.position;
+
+  useEffect(() => {
+    if (roomCode && room && currentUserPosition) initialize(roomCode, currentUserPosition);
+  }, [roomCode, room, currentUserPosition, initialize]);
+
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+      void localVideoRef.current.play().catch((error) => console.warn('Local media preview autoplay was blocked:', error));
+    }
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+      void remoteVideoRef.current.play().catch((error) => console.warn('Remote media autoplay was blocked:', error));
+    }
+  }, [room, camOn, localStream, remoteStream]);
+
+  useEffect(() => {
+    localStream?.getAudioTracks().forEach((track) => { track.enabled = micOn; });
+    localStream?.getVideoTracks().forEach((track) => { track.enabled = camOn; });
+  }, [localStream, micOn, camOn]);
 
   /**
    * Load the latest room data from the backend.
@@ -163,7 +186,14 @@ export function WaitingRoomPage() {
       }
     };
 
-    const unsubscribe = gameSocket.onMessage((event) => {
+    let isActive = true;
+    const unsubscribe = gameSocket.onMessage(async(event) => {
+      if (!isActive) return;
+      if (typeof event.roomCode === 'string' && event.roomCode !== roomCode) return;
+      if (event.type === 'error') {
+        console.error('WebSocket signaling error:', event.message);
+        return;
+      }
       console.log(
         'Waiting room WebSocket event:',
         event
@@ -176,6 +206,10 @@ export function WaitingRoomPage() {
        */
       if (event.type === 'authenticated') {
         joinSocketRoom();
+        return;
+      }
+
+      if (event.type === 'room_state') {
         return;
       }
 
@@ -206,6 +240,13 @@ export function WaitingRoomPage() {
         void loadRoom(false);
       }
     });
+    const unsubscribeStatus = gameSocket.onStatus((connected) => {
+      if (!connected) {
+        hasJoinedSocketRoom.current = false;
+        return;
+      }
+      joinSocketRoom();
+    });
 
     /**
      * The WebSocket may already be connected because
@@ -216,7 +257,9 @@ export function WaitingRoomPage() {
     }
 
     return () => {
+      isActive = false;
       unsubscribe();
+      unsubscribeStatus();
       hasJoinedSocketRoom.current = false;
     };
   }, [roomCode, auth.token]);
@@ -239,14 +282,6 @@ export function WaitingRoomPage() {
   const opponentName =
     opponent?.username ||
     'Player 2';
-
-  const currentPlayerImage =
-    currentUser?.avatarUrl ||
-    PLAYER_A;
-
-  const opponentImage =
-    opponent?.avatarUrl ||
-    PLAYER_B;
 
   if (loading) {
     return (
@@ -355,9 +390,11 @@ export function WaitingRoomPage() {
 
               <div className="relative aspect-[3/4] max-h-[34dvh] w-full overflow-hidden rounded-lg border border-[#2A2A25] bg-[#181815] animate-drift">
                 {camOn ? (
-                  <img
-                    src={currentPlayerImage}
-                    alt={currentPlayerName}
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
                     className="h-full w-full object-cover opacity-85"
                     style={{
                       filter:
@@ -379,7 +416,7 @@ export function WaitingRoomPage() {
                 </div>
 
                 <div className="absolute bottom-2 right-2">
-                  <span className="rounded bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/80 backdrop-blur-sm">V2 mock</span>
+                  <span className="rounded bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/80 backdrop-blur-sm">Live video</span>
                 </div>
               </div>
             </div>
@@ -411,9 +448,10 @@ export function WaitingRoomPage() {
 
               {opponentJoined ? (
                 <div className="relative aspect-[3/4] max-h-[34dvh] w-full overflow-hidden rounded-lg border border-[#2A2A25] bg-[#181815] animate-scale-in">
-                  <img
-                    src={opponentImage}
-                    alt={opponentName}
+                  <video
+                    ref={remoteVideoRef}
+                    autoPlay
+                    playsInline
                     className="h-full w-full object-cover opacity-85"
                     style={{
                       filter:
@@ -430,7 +468,7 @@ export function WaitingRoomPage() {
                   </div>
 
                   <div className="absolute bottom-2 right-2">
-                    <span className="rounded bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/80 backdrop-blur-sm">V2 mock</span>
+                    <span className="rounded bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/80 backdrop-blur-sm">Live video</span>
                   </div>
                 </div>
               ) : (
@@ -452,7 +490,11 @@ export function WaitingRoomPage() {
             {/* Mic / Camera */}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setMicOn(!micOn)}
+                onClick={() => {
+                  const next = !micOn;
+                  setMicOn(next);
+                  localStream?.getAudioTracks().forEach((track) => { track.enabled = next; });
+                }}
                 aria-label={
                   micOn
                     ? 'Mute microphone'
@@ -472,7 +514,11 @@ export function WaitingRoomPage() {
               </button>
 
               <button
-                onClick={() => setCamOn(!camOn)}
+                onClick={() => {
+                  const next = !camOn;
+                  setCamOn(next);
+                  localStream?.getVideoTracks().forEach((track) => { track.enabled = next; });
+                }}
                 aria-label={
                   camOn
                     ? 'Turn off camera'

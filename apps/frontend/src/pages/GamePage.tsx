@@ -9,7 +9,7 @@ import {
   useParams,
 } from 'react-router-dom';
 
-import { Target } from 'lucide-react';
+import { Target, VideoOff } from 'lucide-react';
 
 import { LogoMark } from '@/components/game/BrandLogo';
 import { RoomCode } from '@/components/game/RoomCode';
@@ -23,11 +23,9 @@ import { GuessModal } from '@/components/game/GuessModal';
 import { MobileMenu } from '@/components/game/MobileMenu';
 
 import { useGame } from '@/lib/game-context';
+import { useWebRTC } from '@/lib/webrtc-context';
 
 import { gameSocket } from '@/services/websocket';
-
-const MOCK_PLAYER_VIDEO =
-  'https://images.pexels.com/photos/34622355/pexels-photo-34622355.jpeg?auto=compress&cs=tinysrgb&w=500&h=650&fit=crop';
 
 export function GamePage() {
   const { roomCode } =
@@ -38,6 +36,7 @@ export function GamePage() {
 
   const game =
     useGame();
+  const { remoteStream } = useWebRTC();
 
   const [guessOpen, setGuessOpen] =
     useState(false);
@@ -45,6 +44,16 @@ export function GamePage() {
 
   const scrollRef =
     useRef<HTMLDivElement>(null);
+  const remoteVideoRef =
+    useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (!remoteVideoRef.current || !remoteStream) return;
+    remoteVideoRef.current.srcObject = remoteStream;
+    void remoteVideoRef.current.play().catch((error) => {
+      console.warn('Remote media autoplay was blocked:', error);
+    });
+  }, [remoteStream]);
 
   // ------------------------------------------------------------
   // Automatically scroll chat to bottom
@@ -96,10 +105,14 @@ export function GamePage() {
       const token = localStorage.getItem('whoami-token');
       if (!token) return;
       try {
-        const response = await fetch(`http://localhost:3001/api/v1/rooms/${encodeURIComponent(roomCode)}/result`, {
+        const response = await fetch(`http://localhost:3001/api/v1/rooms/${encodeURIComponent(roomCode)}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (response.ok) navigate(`/game/${roomCode}/result`, { replace: true });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.game?.status === 'FINISHED') {
+          navigate(`/game/${roomCode}/result`, { replace: true });
+        }
       } catch (error) {
         console.error('Could not refresh game result:', error);
       }
@@ -356,15 +369,26 @@ export function GamePage() {
 
           <div className="game-v2-preview mx-auto flex w-full max-w-2xl flex-col items-stretch gap-2 overflow-hidden rounded-lg border border-[#2A2A25] bg-[#181815] p-2 lg:mt-1 lg:w-full lg:max-w-none lg:p-2.5">
             <div className="relative aspect-video w-full overflow-hidden rounded-md bg-[#11110F]">
-              <img src={MOCK_PLAYER_VIDEO} alt="Mock player video call preview for V2" className="h-full w-full object-cover opacity-70" />
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className={`h-full w-full object-cover ${remoteStream ? 'opacity-70' : 'opacity-0'}`}
+                aria-label="Opponent video"
+              />
+              {!remoteStream && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center">
+                  <VideoOff className="h-5 w-5 text-[#5A564F]" />
+                  <span className="px-3 text-[9px] text-[#9A958B]">Waiting for opponent video</span>
+                </div>
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-              <span className="absolute bottom-1 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/90">V2 preview</span>
             </div>
             <div className="min-w-0 lg:hidden">
               <p className="truncate text-[10px] font-semibold text-[#F5F1E8] sm:text-xs">Video call</p>
-              <p className="truncate text-[9px] text-[#9A958B] sm:text-[10px]">Mock preview · coming in V2</p>
+              <p className="truncate text-[9px] text-[#9A958B] sm:text-[10px]">Live opponent video</p>
             </div>
-            <p className="hidden text-center text-[10px] font-medium text-[#9A958B] lg:block">Mock video call preview · V2</p>
+            <p className="hidden text-center text-[10px] font-medium text-[#9A958B] lg:block">Live opponent video</p>
           </div>
 
         </div>

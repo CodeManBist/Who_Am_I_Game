@@ -12,14 +12,16 @@ import { CharacterSelectPage } from '@/pages/CharacterSelectPage';
 import { CountdownPage } from '@/pages/CountdownPage';
 import { GamePage } from '@/pages/GamePage';
 import { GameResultPage } from '@/pages/GameResultPage';
+import { WebRTCProvider } from '@/lib/webrtc-context';
 import './App.css';
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <GameProvider>
-          <Routes>
+        <WebRTCProvider>
+          <GameProvider>
+            <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/how-to-play" element={<HowToPlayPage />} />
             <Route path="/auth" element={<AuthPage />} />
@@ -86,8 +88,9 @@ function App() {
                 </ProtectedRoute>
               }
             />
-          </Routes>
-        </GameProvider>
+            </Routes>
+          </GameProvider>
+        </WebRTCProvider>
       </BrowserRouter>
     </AuthProvider>
   );

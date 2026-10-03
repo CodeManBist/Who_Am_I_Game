@@ -1,15 +1,7 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Video } from 'lucide-react';
 import { LogoMark } from '@/components/game/BrandLogo';
-import { RoomCode } from '@/components/game/RoomCode';
 import { MobileMenu } from '@/components/game/MobileMenu';
-
-const PLAYER_A =
-  'https://images.pexels.com/photos/7958715/pexels-photo-7958715.jpeg?auto=compress&cs=tinysrgb&w=400&h=500&fit=crop';
-const PLAYER_B =
-  'https://images.pexels.com/photos/34622355/pexels-photo-34622355.jpeg?auto=compress&cs=tinysrgb&w=400&h=500&fit=crop';
-const MYSTERY =
-  'https://images.pexels.com/photos/4209126/pexels-photo-4209126.jpeg?auto=compress&cs=tinysrgb&w=400&h=500&fit=crop';
 
 export function HowToPlayPage() {
   return (
@@ -63,7 +55,9 @@ export function HowToPlayPage() {
               </p>
             </div>
             <div className="flex justify-center">
-              <RoomCode code="K7Q-29P" large />
+              <div className="rounded-md border border-[#2A2A25] bg-[#181815] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#9A958B]">
+                Your private room code
+              </div>
             </div>
           </div>
 
@@ -82,7 +76,7 @@ export function HowToPlayPage() {
             </div>
             <div className="flex flex-col items-center gap-2">
               <div className="aspect-[4/5] w-24 overflow-hidden rounded-lg border border-[#8FCB9B]/30 bg-[#181815] sm:w-28">
-                <img src={MYSTERY} alt="Example of your own selected character" className="h-full w-full object-cover" />
+                <div className="flex h-full items-center justify-center bg-[#211F1B] text-4xl font-bold text-white/85">?</div>
               </div>
               <span className="text-[10px] font-semibold uppercase tracking-wider text-[#8FCB9B]">My character · visible to me</span>
             </div>
@@ -103,14 +97,16 @@ export function HowToPlayPage() {
             </div>
             <div className="flex justify-center gap-2">
               <div className="relative aspect-[3/4] w-20 overflow-hidden rounded-md border border-[#2A2A25]">
-                <img src={PLAYER_A} alt="Player 1" className="h-full w-full object-cover opacity-85" style={{ filter: 'saturate(0.8) contrast(1.08) brightness(0.92)' }} />
+                <video autoPlay muted playsInline className="h-full w-full object-cover opacity-70" aria-label="Player 1 live video" />
+                <div className="absolute inset-0 flex items-center justify-center"><Video className="h-4 w-4 text-[#5A564F]" /></div>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 <div className="absolute bottom-1 left-1">
                   <span className="rounded bg-black/50 px-1 py-0.5 text-[7px] font-semibold text-white/75 backdrop-blur-sm">P01</span>
                 </div>
               </div>
               <div className="relative aspect-[3/4] w-20 overflow-hidden rounded-md border border-[#2A2A25]">
-                <img src={PLAYER_B} alt="Player 2" className="h-full w-full object-cover opacity-85" style={{ filter: 'saturate(0.8) contrast(1.08) brightness(0.92)' }} />
+                <video autoPlay muted playsInline className="h-full w-full object-cover opacity-70" aria-label="Player 2 live video" />
+                <div className="absolute inset-0 flex items-center justify-center"><Video className="h-4 w-4 text-[#5A564F]" /></div>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 <div className="absolute bottom-1 left-1">
                   <span className="rounded bg-black/50 px-1 py-0.5 text-[7px] font-semibold text-white/75 backdrop-blur-sm">P02</span>
@@ -133,20 +129,9 @@ export function HowToPlayPage() {
               </p>
             </div>
             <div className="w-full max-w-xs space-y-2">
-              {[
-                { name: 'Sagar', text: 'Is your person a footballer?', you: true },
-                { name: 'Rahul', text: 'Yeah 😂', you: false },
-                { name: 'Sagar', text: 'Are they from Argentina?', you: true },
-              ].map((m, i) => (
-                <div key={i} className={`flex ${m.you ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] ${m.you ? 'text-right' : ''}`}>
-                    {!m.you && <p className="mb-0.5 text-[9px] font-medium text-[#FF5A36]">{m.name}</p>}
-                    <div className={`inline-block rounded-md px-2.5 py-1.5 text-[11px] ${m.you ? 'bg-[#FF5A36] text-white' : 'bg-[#211F1B] text-[#d5d0c7]'}`}>
-                      {m.text}
-                    </div>
-                  </div>
-                </div>
-              ))}
+              <div className="rounded-md border border-[#2A2A25] bg-[#181815] px-3 py-4 text-center text-[11px] text-[#5A564F]">
+                Live questions and answers appear here during your game.
+              </div>
             </div>
           </div>
 
@@ -193,7 +178,7 @@ export function HowToPlayPage() {
             <div className="flex justify-center">
               <div className="relative bg-[#f0ebe2] p-1.5 pb-5" style={{ transform: 'rotate(2deg)', filter: 'drop-shadow(0 12px 28px rgba(0,0,0,0.5))' }}>
                 <div className="relative aspect-[4/5] w-28 overflow-hidden">
-                  <img src={MYSTERY} alt="Revealed" className="h-full w-full object-cover" style={{ filter: 'sepia(0.2) contrast(1.1) brightness(0.95)' }} />
+                  <div className="flex h-full items-center justify-center bg-[#211F1B] text-4xl font-bold text-white/85">?</div>
                 </div>
                 <span style={{ fontFamily: "'Caveat', cursive" }} className="absolute bottom-0.5 left-0 right-0 text-center text-sm font-semibold text-[#3a3530]">
                   Lionel Messi

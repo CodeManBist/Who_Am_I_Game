@@ -1,18 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Loader2, Video } from 'lucide-react';
 
 import { LogoMark } from '@/components/game/BrandLogo';
 import { MobileMenu } from '@/components/game/MobileMenu';
 import { useAuth } from '@/lib/auth-context';
 
 const API_URL = 'http://localhost:3001/api/v1';
-
-const PLAYER_A =
-  'https://images.pexels.com/photos/7958715/pexels-photo-7958715.jpeg?auto=compress&cs=tinysrgb&w=200&h=260&fit=crop';
-
-const PLAYER_B =
-  'https://images.pexels.com/photos/34622355/pexels-photo-34622355.jpeg?auto=compress&cs=tinysrgb&w=200&h=260&fit=crop';
 
 export function JoinRoomPage() {
   const navigate = useNavigate();
@@ -207,15 +201,8 @@ export function JoinRoomPage() {
           {/* visual preview of two players connecting */}
           <div className="mt-10 flex items-center justify-center gap-3 opacity-50">
             <div className="relative aspect-[3/4] w-16 overflow-hidden rounded-md border border-[#2A2A25]">
-              <img
-                src={PLAYER_A}
-                alt="Player 1"
-                className="h-full w-full object-cover"
-                style={{
-                  filter:
-                    'saturate(0.8) contrast(1.08) brightness(0.92)',
-                }}
-              />
+              <video autoPlay muted playsInline className="h-full w-full object-cover opacity-70" aria-label="Player 1 live video" />
+              <div className="absolute inset-0 flex items-center justify-center"><Video className="h-4 w-4 text-[#5A564F]" /></div>
             </div>
 
             <span className="font-display text-lg font-bold text-[#3a3a32]">
@@ -223,15 +210,8 @@ export function JoinRoomPage() {
             </span>
 
             <div className="relative aspect-[3/4] w-16 overflow-hidden rounded-md border border-[#2A2A25]">
-              <img
-                src={PLAYER_B}
-                alt="Player 2"
-                className="h-full w-full object-cover"
-                style={{
-                  filter:
-                    'saturate(0.8) contrast(1.08) brightness(0.92)',
-                }}
-              />
+              <video autoPlay muted playsInline className="h-full w-full object-cover opacity-70" aria-label="Player 2 live video" />
+              <div className="absolute inset-0 flex items-center justify-center"><Video className="h-4 w-4 text-[#5A564F]" /></div>
             </div>
           </div>
         </div>

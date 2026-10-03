@@ -82,6 +82,20 @@ function broadcast(roomCode: string, event: Record<string, unknown>) {
   for (const client of room) if (client.readyState === WebSocket.OPEN) client.send(payload);
 }
 
+function relayToOtherPlayer(roomCode: string, sender: WebSocket, event: Record<string, unknown>) {
+  const room = rooms.get(roomCode);
+
+  if (!room) return;
+
+  const payload = JSON.stringify(event);
+
+  for (const client of room) {
+    if(client !== sender && client.readyState === WebSocket.OPEN) {
+      client.send(payload);
+    }
+  }
+}
+
 async function startCountdown(roomCode: string) {
   if (countdowns.has(roomCode)) return;
   countdowns.add(roomCode);
@@ -172,6 +186,107 @@ wss.on("connection", (socket: WebSocket, request) => {
             game.players.every((p) => p.characterName && p.characterImageUrl && p.characterConfirmed)) {
             void startCountdown(roomCode);
           }
+          return;
+        }
+
+        if (
+          message.type === "webrtc_ready" ||
+          message.type === "webrtc_offer" ||
+          message.type === "webrtc_answer" ||
+          message.type === "webrtc_ice_candidate"
+        ) {
+          if (!roomCode) {
+            return sendError("Room code is required");
+          }
+        
+          if (socketRooms.get(socket) !== roomCode) {
+            return sendError("Join this room before starting WebRTC");
+          }
+        
+          const game = await prisma.game.findUnique({
+            where: { roomCode },
+            include: { players: true },
+          });
+        
+          if (!game || !game.players.some((player) => player.userId === userId)) {
+            return sendError("You are not a player in this game");
+          }
+        
+          if (message.type === "webrtc_ready") {
+            return relayToOtherPlayer(roomCode, socket, {
+              type: "webrtc_ready",
+              roomCode,
+              userId,
+            });
+          }
+        
+          const signalingData = (message as {
+            data?: unknown;
+          }).data;
+        
+          if (!signalingData || typeof signalingData !== "object") {
+            return sendError("Invalid WebRTC signaling data");
+          }
+        
+          if (
+            message.type === "webrtc_offer" ||
+            message.type === "webrtc_answer"
+          ) {
+            const sdp = (signalingData as { sdp?: unknown }).sdp;
+            const type = (signalingData as { type?: unknown }).type;
+        
+            if (
+              typeof sdp !== "string" ||
+              (type !== "offer" && type !== "answer")
+            ) {
+              return sendError("Invalid WebRTC SDP");
+            }
+        
+            return relayToOtherPlayer(roomCode, socket, {
+              type: message.type,
+              roomCode,
+              userId,
+              data: {
+                type,
+                sdp,
+              },
+            });
+          }
+        
+          if (message.type === "webrtc_ice_candidate") {
+            const candidate = (signalingData as {
+              candidate?: unknown;
+              sdpMid?: unknown;
+              sdpMLineIndex?: unknown;
+              usernameFragment?: unknown;
+            }).candidate;
+        
+            if (typeof candidate !== "string") {
+              return sendError("Invalid ICE candidate");
+            }
+        
+            return relayToOtherPlayer(roomCode, socket, {
+              type: "webrtc_ice_candidate",
+              roomCode,
+              userId,
+              data: {
+                candidate,
+                sdpMid:
+                  typeof (signalingData as { sdpMid?: unknown }).sdpMid === "string"
+                    ? (signalingData as { sdpMid: string }).sdpMid
+                    : null,
+                sdpMLineIndex:
+                  typeof (signalingData as { sdpMLineIndex?: unknown }).sdpMLineIndex === "number"
+                    ? (signalingData as { sdpMLineIndex: number }).sdpMLineIndex
+                    : null,
+                usernameFragment:
+                  typeof (signalingData as { usernameFragment?: unknown }).usernameFragment === "string"
+                    ? (signalingData as { usernameFragment: string }).usernameFragment
+                    : null,
+              },
+            });
+          }
+        
           return;
         }
 

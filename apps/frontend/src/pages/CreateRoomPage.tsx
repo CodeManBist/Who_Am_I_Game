@@ -200,10 +200,10 @@ export function CreateRoomPage() {
 
               <div>
                 <p className="text-sm text-[#9A958B]">
-                  Waiting for player 2
+                  Your room is ready
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-[#5A564F]">
-                  The character selection unlocks as soon as your friend joins this room.
+                  Share the room code or invite link with a friend to start playing together.
                 </p>
               </div>
             </div>

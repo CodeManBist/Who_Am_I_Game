@@ -7,6 +7,9 @@ import { identifyCharacter } from '../services/gemini.service';
 import { randomInt } from 'crypto';
 import { matchesCharacterName } from '../services/character-name.service';
 
+const WEBSOCKET_INTERNAL_URL = (process.env.WEBSOCKET_INTERNAL_URL || 'http://localhost:3002').replace(/\/$/, '');
+const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET || '';
+
 const roomRouter = Router();
 
 const upload = multer({
@@ -310,8 +313,8 @@ roomRouter.post(
           });
           if (finished.count === 1) {
             try {
-              await fetch('http://localhost:3002/internal/game-finished', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+              await fetch(`${WEBSOCKET_INTERNAL_URL}/internal/game-finished`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${INTERNAL_API_SECRET}` },
                 body: JSON.stringify({ roomCode, userId, winnerUserId: null }),
               });
             } catch (notificationError) {
@@ -465,10 +468,11 @@ roomRouter.post(
         // Notify WebSocket server; persistence succeeds even if the live
         // notification service is temporarily unavailable.
         try {
-          const notification = await fetch("http://localhost:3002/internal/character-ready", {
+          const notification = await fetch(`${WEBSOCKET_INTERNAL_URL}/internal/character-ready`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${INTERNAL_API_SECRET}`,
             },
             body: JSON.stringify({
               roomCode,
@@ -621,11 +625,12 @@ roomRouter.post(
         // Notify WebSocket server
         try {
           const notification = await fetch(
-            'http://localhost:3002/internal/character-confirmed',
+            `${WEBSOCKET_INTERNAL_URL}/internal/character-confirmed`,
             {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                Authorization: `Bearer ${INTERNAL_API_SECRET}`,
               },
               body: JSON.stringify({
                 roomCode,
@@ -705,8 +710,8 @@ roomRouter.post('/:roomCode/start', authenticateToken, async (req: Request<{ roo
       return res.status(400).json({ message: 'Game cannot be started in its current state' });
     }
     try {
-      const response = await fetch('http://localhost:3002/internal/start-game', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const response = await fetch(`${WEBSOCKET_INTERNAL_URL}/internal/start-game`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${INTERNAL_API_SECRET}` },
         body: JSON.stringify({ roomCode, userId }),
       });
       const data = await response.json() as { message?: string };
@@ -846,9 +851,9 @@ roomRouter.post(
         if (!accepted) return res.status(409).json({ message: finalGame?.status === 'FINISHED' ? 'Game already finished' : 'The turn changed before your guess was accepted' });
         if (!isCorrect) {
           try {
-            const notification = await fetch('http://localhost:3002/internal/turn-changed', {
+            const notification = await fetch(`${WEBSOCKET_INTERNAL_URL}/internal/turn-changed`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${INTERNAL_API_SECRET}` },
               body: JSON.stringify({
                 roomCode,
                 userId,
@@ -869,8 +874,8 @@ roomRouter.post(
           });
         }
         try {
-          const notification = await fetch('http://localhost:3002/internal/game-finished', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+          const notification = await fetch(`${WEBSOCKET_INTERNAL_URL}/internal/game-finished`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${INTERNAL_API_SECRET}` },
             body: JSON.stringify({ roomCode, userId, winnerUserId: player.userId, actualName: opponent.characterName }),
           });
           if (!notification.ok) console.error('WebSocket game-finished notification failed:', notification.status);

@@ -16,6 +16,10 @@ const result = await Bun.build({
   sourcemap: "linked",
   define: {
     "process.env.NODE_ENV": JSON.stringify("production"),
+    __WHOMI_BUILD_ENV__: JSON.stringify({
+      apiUrl: process.env.VITE_API_URL || "http://localhost:3001/api/v1",
+      websocketUrl: process.env.VITE_WEBSOCKET_URL || "ws://localhost:3002",
+    }),
   },
 });
 

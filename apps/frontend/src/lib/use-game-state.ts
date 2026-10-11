@@ -8,7 +8,7 @@ import type {
 } from './types';
 import { useAuth } from './auth-context';
 
-const API_URL = 'http://localhost:3001/api/v1';
+import { API_URL } from './api-url';
 
 type RoomPlayerResponse = {
   id: string;

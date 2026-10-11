@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 
-const API_URL = "http://localhost:3001/api/v1";
+import { API_URL } from "./api-url";
 const REFRESH_EARLY_MS = 5 * 60 * 1000;
 
 function tokenExpiry(token: string): number | null {

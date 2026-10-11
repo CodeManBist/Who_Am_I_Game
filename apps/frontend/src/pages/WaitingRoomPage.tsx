@@ -16,7 +16,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useWebRTC } from '@/lib/webrtc-context';
 import { gameSocket } from '@/services/websocket';
 
-const API_URL = 'http://localhost:3001/api/v1';
+import { API_URL } from '../lib/api-url';
 
 type RoomPlayer = {
   id: string;

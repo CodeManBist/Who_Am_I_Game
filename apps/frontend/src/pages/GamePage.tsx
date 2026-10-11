@@ -1,3 +1,4 @@
+import { API_URL } from '../lib/api-url';
 import {
   useEffect,
   useRef,
@@ -105,7 +106,7 @@ export function GamePage() {
       const token = localStorage.getItem('whoami-token');
       if (!token) return;
       try {
-        const response = await fetch(`http://localhost:3001/api/v1/rooms/${encodeURIComponent(roomCode)}`, {
+        const response = await fetch(`${API_URL}/rooms/${encodeURIComponent(roomCode)}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!response.ok) return;
@@ -250,7 +251,7 @@ export function GamePage() {
     try {
       const token = localStorage.getItem('whoami-token');
       if (roomCode && token) {
-        await fetch(`http://localhost:3001/api/v1/rooms/${encodeURIComponent(roomCode)}/leave`, {
+        await fetch(`${API_URL}/rooms/${encodeURIComponent(roomCode)}/leave`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         });

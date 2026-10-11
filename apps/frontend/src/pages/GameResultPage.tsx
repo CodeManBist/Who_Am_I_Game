@@ -5,7 +5,7 @@ import { useGame } from '@/lib/game-context';
 import type { GameResult as GameResultType } from '@/lib/types';
 import { MobileMenu } from '@/components/game/MobileMenu';
 
-const API_URL = 'http://localhost:3001/api/v1';
+import { API_URL } from '../lib/api-url';
 
 export function GameResultPage() {
   const { roomCode } = useParams();

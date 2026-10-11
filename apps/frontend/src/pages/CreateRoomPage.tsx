@@ -15,7 +15,7 @@ import { RoomCode } from '@/components/game/RoomCode';
 import { ConnectionStatus } from '@/components/game/ConnectionStatus';
 import { useAuth } from '@/lib/auth-context';
 
-const API_URL = 'http://localhost:3001/api/v1';
+import { API_URL } from '../lib/api-url';
 
 export function CreateRoomPage() {
   const navigate = useNavigate();

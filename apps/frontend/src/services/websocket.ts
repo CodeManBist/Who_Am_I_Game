@@ -6,7 +6,7 @@ export type WebSocketEvent = {
 type EventHandler = (event: WebSocketEvent) => void;
 type StatusHandler = (connected: boolean) => void;
 
-const WS_URL = "ws://localhost:3002";
+import { WEBSOCKET_URL as WS_URL } from "../lib/api-url";
 
 class GameWebSocket {
   private socket: WebSocket | null = null;

@@ -6,13 +6,22 @@ import { prisma } from "@repo/db";
 const rooms = new Map<string, Set<WebSocket>>();
 const socketRooms = new Map<WebSocket, string>();
 const countdowns = new Set<string>();
+const internalApiSecret = process.env.INTERNAL_API_SECRET;
 const server = createServer(async (req, res) => {
   const respond = (status: number, body: unknown) => {
     res.writeHead(status, { "Content-Type": "application/json" });
     res.end(JSON.stringify(body));
   };
+  if (req.method === "GET" && req.url === "/health") {
+    respond(200, { status: "ok" });
+    return;
+  }
   if (req.method !== "POST" || !["/internal/character-ready", "/internal/character-confirmed", "/internal/game-finished", "/internal/turn-changed", "/internal/start-game"].includes(req.url || "")) {
     respond(404, { success: false, message: "Not found" });
+    return;
+  }
+  if (!internalApiSecret || req.headers.authorization !== `Bearer ${internalApiSecret}`) {
+    respond(401, { success: false, message: "Unauthorized" });
     return;
   }
   try {
@@ -336,4 +345,5 @@ wss.on("connection", (socket: WebSocket, request) => {
   });
 });
 
-server.listen(process.env.PORT || 3002, () => console.log(`WebSocket server running on port ${process.env.PORT || 3002}`));
+const port = Number(process.env.PORT) || 3002;
+server.listen(port, () => console.log(`WebSocket server running on port ${port}`));

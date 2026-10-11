@@ -4,6 +4,9 @@ import { LogoMark } from '@/components/game/BrandLogo';
 import { useAuth } from '@/lib/auth-context';
 import { MobileMenu } from '@/components/game/MobileMenu';
 
+const CHARACTER_PREVIEW =
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=640&q=85';
+
 function VideoFrame({
   label,
   micOn = true,
@@ -149,8 +152,16 @@ export function LandingPage() {
                   <VideoFrame label="Player 01" micOn delay="0s" rotate="0.5deg" />
                   <VideoFrame label="Player 02" micOn={false} delay="2s" rotate="-0.5deg" />
                   <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
-                    <div className="flex h-24 w-20 items-center justify-center rounded-lg border border-[#8FCB9B]/30 bg-[#211F1B] text-4xl font-bold text-white/85">
-                      ?
+                    <div className="relative h-24 w-20 overflow-hidden rounded-lg border border-[#8FCB9B]/30 bg-[#211F1B]">
+                      <img
+                        src={CHARACTER_PREVIEW}
+                        alt="Character preview"
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/35 text-4xl font-bold text-white/85">
+                        ?
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -222,7 +233,12 @@ export function LandingPage() {
                     style={{ transform: 'rotate(-2.5deg)', filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.4))' }}
                   >
                     <div className="relative aspect-[4/5] overflow-hidden">
-                      <div className="h-full w-full bg-[#211F1B]" />
+                      <img
+                        src={CHARACTER_PREVIEW}
+                        alt="Mystery character preview"
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
                       <div className="absolute inset-0 bg-black/35" />
                       <div className="absolute inset-0 flex items-center justify-center">
                         <span className="font-display text-4xl font-bold text-white/85">?</span>

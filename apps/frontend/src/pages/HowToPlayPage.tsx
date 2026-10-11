@@ -3,6 +3,9 @@ import { ArrowRight, Video } from 'lucide-react';
 import { LogoMark } from '@/components/game/BrandLogo';
 import { MobileMenu } from '@/components/game/MobileMenu';
 
+const CHARACTER_PREVIEW =
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=640&q=85';
+
 export function HowToPlayPage() {
   return (
     <div className="min-h-[100dvh] bg-[#11110F] text-[#F5F1E8]">
@@ -76,7 +79,15 @@ export function HowToPlayPage() {
             </div>
             <div className="flex flex-col items-center gap-2">
               <div className="aspect-[4/5] w-24 overflow-hidden rounded-lg border border-[#8FCB9B]/30 bg-[#181815] sm:w-28">
-                <div className="flex h-full items-center justify-center bg-[#211F1B] text-4xl font-bold text-white/85">?</div>
+                <div className="relative h-full">
+                  <img
+                    src={CHARACTER_PREVIEW}
+                    alt="Example character"
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/35 text-4xl font-bold text-white/85">?</div>
+                </div>
               </div>
               <span className="text-[10px] font-semibold uppercase tracking-wider text-[#8FCB9B]">My character · visible to me</span>
             </div>
@@ -178,7 +189,12 @@ export function HowToPlayPage() {
             <div className="flex justify-center">
               <div className="relative bg-[#f0ebe2] p-1.5 pb-5" style={{ transform: 'rotate(2deg)', filter: 'drop-shadow(0 12px 28px rgba(0,0,0,0.5))' }}>
                 <div className="relative aspect-[4/5] w-28 overflow-hidden">
-                  <div className="flex h-full items-center justify-center bg-[#211F1B] text-4xl font-bold text-white/85">?</div>
+                  <img
+                    src={CHARACTER_PREVIEW}
+                    alt="Revealed character"
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
                 </div>
                 <span style={{ fontFamily: "'Caveat', cursive" }} className="absolute bottom-0.5 left-0 right-0 text-center text-sm font-semibold text-[#3a3530]">
                   Lionel Messi
